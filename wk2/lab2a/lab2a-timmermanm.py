@@ -109,6 +109,7 @@ class Server():
 
         request_file_path = None
 
+        # If the root of the site is requested, return the index.html
         if (file_name == "/"):
             request_file_path = self.indexfile
         else:
@@ -212,6 +213,10 @@ if __name__ == '__main__':
     public_html = os.path.abspath(args.public_html)
     cgibin = os.path.abspath(args.cgibin)
     indexfile = os.path.abspath(public_html + args.indexfile)
+
+    # Start the server
     server = Server(args.port, public_html, cgibin, indexfile)
-    signal.signal(signal.SIGINT, sig_int)
     server.start()
+
+    # Stop the server
+    signal.signal(signal.SIGINT, sig_int)
