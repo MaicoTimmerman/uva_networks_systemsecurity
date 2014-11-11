@@ -32,8 +32,10 @@ class ChatServer():
             "/nick": self.set_nick,
             "/say": self.send_message,
             "/whisper": self.whisper_message,
+            "/w": self.whisper_message,
             "/list": self.list_users,
-            "/help": self.help
+            "/help": self.help,
+            "/quit": self.remove_client
         }
         self.start()
 
@@ -128,16 +130,34 @@ class ChatServer():
         # Find the socket matching the user
         user = args[0]
         sock_nr = self.nicknames.keys()[self.nicknames.values().index(user)]
+        if (sock_nr == sock.getpeername()[1]):
+            sock.send('Cannot send a whisper to self!')
+            return
 
-        msg = ' '.join(str(elem) for elem in args)
+        msg = ' '.join(str(elem) for elem in args[1:])
         msg = '(w)' + self.nicknames[sock.getpeername()[1]] + ': ' + msg
 
         for recv_sock in self.inputs:
-            if recv_sock.getpeername()[1] == sock_nr:
-                recv_sock.send(msg)
+            if (recv_sock != self.socket):
+                if recv_sock.getpeername()[1] == sock_nr:
+                    recv_sock.send(msg)
 
-    def list_users(self, *args):
-        return
+    def list_users(self, sock, *args):
+        user_list = ''
+
+        # Iterate all sockets
+        for user in self.inputs:
+
+            # Dont display server socket
+            if (user != self.socket and user != sock):
+                user_list += self.nicknames[user.getpeername()[1]] + '\n'
+
+            # Mark current user
+            if (user == sock):
+                user_list += '-> ' + \
+                    self.nicknames[user.getpeername()[1]] + '\n'
+
+        sock.send(user_list)
 
     def help(self, sock, *args):
         help_str = ''
@@ -151,7 +171,7 @@ class ChatServer():
         """ Add a client to the system. """
         # Set the nickname of the user
         print('New client added: %s') % str(sock.getpeername()[1])
-        self.nicknames[sock.getpeername()[1]] = "User %s" % (self.user_no)
+        self.nicknames[sock.getpeername()[1]] = "User%s" % (self.user_no)
         self.user_no += 1
 
         self.broadcast_message(sock, '%s has joined the server!' %
@@ -175,8 +195,6 @@ class ChatServer():
                 print('boardcasting!')
                 print(msg)
                 sock.send(msg)
-
-
 
 
 ## Command line parser.

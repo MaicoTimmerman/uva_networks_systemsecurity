@@ -18,8 +18,8 @@ class ChatClient():
         self.socket = socket.socket(AF_INET, SOCK_STREAM)
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.socket.connect(('localhost', port))
-
         self.inputs = [self.socket, ]
+        self.connected = True
 
         self.start()
 
@@ -33,25 +33,24 @@ class ChatClient():
         # update() returns false when the user quits or presses escape.
         while self.win.update():
 
-            input_ready, output_ready, except_ready = \
-                select(self.inputs, [], [], 0)
-            for sock in input_ready:
-                print("sock is in input ready")
-                data = sock.recv(1024)
-
-                print('data "%s"' % data)
-                if not data:
-                    sock.close()
-                    exit(1)
-                    print('Closing socket')
-                else:
-                    self.win.writeln(data)
+            if self.connected:
+                input_ready, output_ready, except_ready = \
+                    select(self.inputs, [], [], 0)
+                for sock in input_ready:
+                    data = sock.recv(1024)
+                    if not data:
+                        sock.close()
+                        self.connected = False
+                        self.win.writeln('Server disconnected')
+                    else:
+                        self.win.writeln(data)
 
             # if the user entered a line getline() returns a string.
             line = self.win.getline()
             if line:
                 self.win.writeln(line)
-                self.socket.send(line)
+                if self.connected:
+                    self.socket.send(line)
 
 
 ## Command line parser.
