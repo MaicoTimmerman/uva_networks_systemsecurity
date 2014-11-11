@@ -13,9 +13,11 @@ class MainWindow(object):
         self._root = root or tk.Tk()
         self._quitstate = False
         self._line = ''
+
         # make frame
         frame = tk.Frame(self._root)
         frame.pack(fill=tk.BOTH)
+
         # make textbox with scrollbar
         scrolly = tk.Scrollbar(frame)
         scrolly.pack(side=tk.RIGHT, fill=tk.Y)
@@ -25,6 +27,7 @@ class MainWindow(object):
         self._txtlog.pack(fill=tk.BOTH)
         scrolly.config(command=self._txtlog.yview)
         self._txtlog.config(yscrollcommand=scrolly.set)
+
         # make buttons
         self._prompt = tk.Entry(frame)
         self._prompt.pack(expand=1, fill=tk.X)
@@ -35,6 +38,7 @@ class MainWindow(object):
         btnok.pack(side=tk.RIGHT)
         btnclear.pack(side=tk.RIGHT)
         btnquit.pack(side=tk.LEFT)
+
         # assign key shortcuts
         self._root.bind('<Return>', lambda e, b=btnok: b.invoke())
         self._root.bind('<Escape>', lambda e, b=btnquit: b.invoke())
