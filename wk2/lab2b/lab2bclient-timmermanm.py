@@ -3,7 +3,8 @@
 ## STUDENT ID: 10542590
 
 import socket
-from socket import AF_INET, SOCK_STREAM
+from select import select
+from socket import AF_INET, SOCK_STREAM, SO_REUSEADDR, SOL_SOCKET
 from gui import MainWindow
 
 
@@ -12,13 +13,17 @@ class ChatClient():
     def __init__(self, port, cert):
 
         # Initialize the enviroment
-        self.port = port
-        self.cert = cert
         self.win = MainWindow()
 
-        self.socket = socket(AF_INET, SOCK_STREAM)
+        self.socket = socket.socket(AF_INET, SOCK_STREAM)
+        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        self.socket.connect(('localhost', port))
 
-    def loop(self, port, cert):
+        self.inputs = [self.socket, ]
+
+        self.start()
+
+    def start(self):
         """
         GUI loop.
         port: port to connect to.
@@ -27,10 +32,26 @@ class ChatClient():
         # The following code explains how to use the GUI.
         # update() returns false when the user quits or presses escape.
         while self.win.update():
+
+            input_ready, output_ready, except_ready = \
+                select(self.inputs, [], [], 0)
+            for sock in input_ready:
+                print("sock is in input ready")
+                data = sock.recv(1024)
+
+                print('data "%s"' % data)
+                if not data:
+                    sock.close()
+                    exit(1)
+                    print('Closing socket')
+                else:
+                    self.win.writeln(data)
+
             # if the user entered a line getline() returns a string.
             line = self.win.getline()
             if line:
                 self.win.writeln(line)
+                self.socket.send(line)
 
 
 ## Command line parser.

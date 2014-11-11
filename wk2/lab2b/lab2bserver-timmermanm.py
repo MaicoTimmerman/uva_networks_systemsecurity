@@ -18,11 +18,23 @@ class ChatServer():
 
         # Start the server
         self.socket.bind(('', port))
-        self.listen(5)
+        self.socket.listen(5)
 
         # Set up the lists for selection
         self.inputs = [self.socket, ]
-        self.message_queue = {}
+
+        # dictionary of nicknames
+        self.nicknames = {}
+        self.user_no = 0
+
+        # Server dict with variables linked to functions
+        self.function_dict = {
+            "/nick": self.set_nick,
+            "/say": self.send_message,
+            "/whisper": self.whisper_message,
+            "/list": self.list_users,
+            "/help": self.help
+        }
         self.start()
 
     def start(self):
@@ -32,71 +44,139 @@ class ChatServer():
         """
 
         while self.inputs:
-            print('Waiting for the next event')
+            # Determine which sockets have send things
             input_ready, output_ready, except_ready = \
-                select.select(self.inputs, [], [])
+                select(self.inputs, [], [])
 
             # Some error happened at the socket,
             # remove it from the system entirely
             for sock in except_ready:
+                print('in except: %s' % sock.getpeername()[1])
                 self.remove_client(sock)
 
             # Sockets that are ready, are clients that are trying to connect.
             for sock in input_ready:
 
                 # A new connection has been made.
-                if sock == server:
+                if sock == self.socket:
                     # handle the server socket
-                    client, address = server.accept()
+                    client, address = self.socket.accept()
+                    self.new_client(client)
 
                 # Handle existing sockets
                 else:
                     data = sock.recv(1024)
                     if data:
                         print('%s received from %s') % \
-                            (data, sock.getsockname())
-                        # self.handle_data(data, sock)
+                            (data, sock.getpeername())
+                        self.handle_data(sock, data)
 
                     # No data has been send, thus the client has disconnected
                     else:
+                        print('no data %s' % sock.getpeername()[1])
                         self.remove_client(sock)
-
-            # Connections with output ready can be written to,
-            # so send all messages in its queue.
-            for sock in output_ready:
-                self.handle_message_queue(sock)
-
         self.socket.close()
 
-    # Remove the client from the list
-    def remove_client(self, sock):
+    def handle_data(self, sock, data):
+        data_function = data.split(' ')[0]
+        data_arguments = data.split(' ')[1:]
         try:
-            sock.close()
-            self.inputs.remove(sock)
-            self.message_queue[sock.getsockname()].pop()
-        except:
-            print('An error happened while removing a client.')
+            self.function_dict[data_function](sock, *data_arguments)
+        except KeyError:
+            sock.send('I do not understand that command, use /help for' +
+                      ' all available commands')
+        except IndexError:
+            sock.send('To few arguments for command %s' % data_function)
+
+    def set_nick(self, sock, *args):
+        """
+        Set the nickname of the current connection to the new value.
+        Broadcast to all the other members the new nickname.
+        *args = (sock, new_nick, ....)
+        """
+        new_nick = args[0]
+        old_nick = self.nicknames[sock.getpeername()[1]]
+
+        # Test is the new_nick is not already taken by another client
+        if (new_nick in self.nicknames.values()):
+            sock.send('That nickname is already taken!')
+            return
+
+        # Set the new nick
+        self.nicknames[sock.getpeername()[1]] = new_nick
+
+        # Notify everyone that the nickname for this user has changed
+        sock.send('Changed nick from %s to %s' % (old_nick, new_nick))
+        self.broadcast_message(sock,
+                               '%s changed nick to %s' % (old_nick, new_nick))
+
+    def send_message(self, sock, *args):
+        """
+        Send a message to all other users
+        *args = (word, word, word, ...)
+        """
+        msg = ' '.join(str(elem) for elem in args)
+        msg = self.nicknames[sock.getpeername()[1]] + ': ' + msg
+        self.broadcast_message(sock, msg)
+
+    def whisper_message(self, sock, *args):
+        """
+        Send a message to a single user.
+        *args = (user, word, word, ...)
+        """
+
+        # Find the socket matching the user
+        user = args[0]
+        sock_nr = self.nicknames.keys()[self.nicknames.values().index(user)]
+
+        msg = ' '.join(str(elem) for elem in args)
+        msg = '(w)' + self.nicknames[sock.getpeername()[1]] + ': ' + msg
+
+        for recv_sock in self.inputs:
+            if recv_sock.getpeername()[1] == sock_nr:
+                recv_sock.send(msg)
+
+    def list_users(self, *args):
         return
+
+    def help(self, sock, *args):
+        help_str = ''
+        help_str += '/nick <user>           | Change nickname to <user>\n'
+        help_str += '/say <text>            | Send message to all users\n'
+        help_str += '/whisper <user> <text> | Send private message to <user>\n'
+        help_str += '/list                  | Lists all online users\n'
+        sock.send(help_str)
 
     def new_client(self, sock):
+        """ Add a client to the system. """
+        # Set the nickname of the user
+        print('New client added: %s') % str(sock.getpeername()[1])
+        self.nicknames[sock.getpeername()[1]] = "User %s" % (self.user_no)
+        self.user_no += 1
+
+        self.broadcast_message(sock, '%s has joined the server!' %
+                               self.nicknames[sock.getpeername()[1]])
+
         self.inputs.append(sock)
-        self.message_queue[sock.getsockname()] = ["Welcome to the chatserver"]
-        print('New client added: %s') % str(sock.getsockname())
+        sock.send("Welcome to the chatserver type /help for info!\n")
+
+    def remove_client(self, sock):
+        """ Remove a client from the system. """
+        print('Client removed: %s') % str(sock.getpeername()[1])
+        self.inputs.remove(sock)
+        self.broadcast_message(sock, '%s has left the server!' %
+                               self.nicknames[sock.getpeername()[1]])
+        del self.nicknames[sock.getpeername()[1]]
+        sock.close()
+
+    def broadcast_message(self, sending_socket, msg):
+        for sock in self.inputs:
+            if (sock != self.socket and sock != sending_socket):
+                print('boardcasting!')
+                print(msg)
+                sock.send(msg)
 
 
-    def broadcast_message(self, msg):
-        return
-
-    def handle_message_queue(self, sock):
-        return
-
-    def help(self):
-        help_str = ''
-        help_str += '/nick <user>          | Change nickname to <user>\n'
-        help_str += '/say <text>           | Send message to all users\n'
-        help_str += '/whisper <user> <text>| Send private message to <user>\n'
-        help_str += '/list                 | Lists all online users\n'
-        return help_str
 
 
 ## Command line parser.
