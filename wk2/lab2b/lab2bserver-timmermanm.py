@@ -53,7 +53,6 @@ class ChatServer():
             # Some error happened at the socket,
             # remove it from the system entirely
             for sock in except_ready:
-                print('in except: %s' % sock.getpeername()[1])
                 self.remove_client(sock)
 
             # Sockets that are ready, are clients that are trying to connect.
@@ -69,13 +68,14 @@ class ChatServer():
                 else:
                     data = sock.recv(1024)
                     if data:
-                        print('%s received from %s') % \
-                            (data, sock.getpeername())
+                        print('(%s, %s): "%s"') % \
+                            (sock.getpeername()[1],
+                             self.nicknames[sock.getpeername()[1]],
+                             data)
                         self.handle_data(sock, data)
 
                     # No data has been send, thus the client has disconnected
                     else:
-                        print('no data %s' % sock.getpeername()[1])
                         self.remove_client(sock)
         self.socket.close()
 
@@ -164,13 +164,14 @@ class ChatServer():
         help_str += '/nick <user>           | Change nickname to <user>\n'
         help_str += '/say <text>            | Send message to all users\n'
         help_str += '/whisper <user> <text> | Send private message to <user>\n'
+        help_str += '/w <user> <text> | Send private message to <user>\n'
         help_str += '/list                  | Lists all online users\n'
         sock.send(help_str)
 
     def new_client(self, sock):
         """ Add a client to the system. """
         # Set the nickname of the user
-        print('New client added: %s') % str(sock.getpeername()[1])
+        print('Client added: %s') % str(sock.getpeername()[1])
         self.nicknames[sock.getpeername()[1]] = "User%s" % (self.user_no)
         self.user_no += 1
 
@@ -192,8 +193,7 @@ class ChatServer():
     def broadcast_message(self, sending_socket, msg):
         for sock in self.inputs:
             if (sock != self.socket and sock != sending_socket):
-                print('boardcasting!')
-                print(msg)
+                print('Broadcast: %s' % msg)
                 sock.send(msg)
 
 
