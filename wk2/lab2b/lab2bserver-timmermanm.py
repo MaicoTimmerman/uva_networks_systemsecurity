@@ -10,6 +10,10 @@ from socket import AF_INET, SOCK_STREAM, SO_REUSEADDR, SOL_SOCKET
 class ChatServer():
 
     def __init__(self, port):
+        """
+        Chat server entry point.
+        port: The port to listen on.
+        """
 
         # Initialize the enviroment
         print('Starting server on port {}'.format(port))
@@ -41,8 +45,8 @@ class ChatServer():
 
     def start(self):
         """
-        Chat server entry point.
-        port: The port to listen on.
+        While there are active connections loop through the ones that send
+        data and handle these request.
         """
 
         while self.inputs:
@@ -80,6 +84,10 @@ class ChatServer():
         self.socket.close()
 
     def handle_data(self, sock, data):
+        """
+        Use the data send to determine if a valid command was entered.
+        If a valid command was entered, run the method matching the command.
+        """
         data_function = data.split(' ')[0]
         data_arguments = data.split(' ')[1:]
         try:
@@ -143,6 +151,9 @@ class ChatServer():
                     recv_sock.send(msg)
 
     def list_users(self, sock, *args):
+        """
+        Send a list of users to the connection
+        """
         user_list = ''
 
         # Iterate all sockets
@@ -191,6 +202,9 @@ class ChatServer():
         sock.close()
 
     def broadcast_message(self, sending_socket, msg):
+        """
+        Broadcast the message to all but the sending socket
+        """
         for sock in self.inputs:
             if (sock != self.socket and sock != sending_socket):
                 print('Broadcast: %s' % msg)
@@ -202,7 +216,8 @@ if __name__ == '__main__':
     import sys
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument('--port', help='port to listen on', default=12345, type=int)
+    p.add_argument('--port',
+                   help='port to listen on',
+                   default=12345, type=int)
     args = p.parse_args(sys.argv[1:])
-
     server = ChatServer(args.port)

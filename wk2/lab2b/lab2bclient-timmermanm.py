@@ -11,6 +11,11 @@ from gui import MainWindow
 class ChatClient():
 
     def __init__(self, port, cert):
+        """
+        Initialize a chatclient
+        port: port to connect to.
+        cert: public certificate (bonus task)
+        """
 
         # Initialize the enviroment
         self.win = MainWindow()
@@ -25,9 +30,7 @@ class ChatClient():
 
     def start(self):
         """
-        GUI loop.
-        port: port to connect to.
-        cert: public certificate (bonus task)
+        Main loop of sending and receiving.
         """
         # The following code explains how to use the GUI.
         # update() returns false when the user quits or presses escape.
