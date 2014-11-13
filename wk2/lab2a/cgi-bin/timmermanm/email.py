@@ -1,6 +1,7 @@
 ## Netwerken en Systeembeveiliging Lab 2A - HTTP and SMTP
 ## NAME: Maico Timmerman
 ## STUDENT ID: 10542590
+
 import os
 import urlparse
 import signal
@@ -38,6 +39,10 @@ class SMTPClient():
         print('SMTPClient initialized, ready to start sending e-mail\n')
 
     def send_SMTP_mail(self):
+        """
+        Send a mail with the use of the SMTP protocol, using the sequence
+        STARTTLS, EHLO, MAIL FROM, RCPT TO and QUIT
+        """
 
         # Make initial contact
         self.init_connection()

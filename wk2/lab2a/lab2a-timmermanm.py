@@ -2,7 +2,6 @@
 ## NAME: Maico Timmerman
 ## STUDENT ID: 10542590
 
-
 import signal
 import mimetypes
 import subprocess
@@ -67,8 +66,10 @@ class Server():
             print("Warning: could not shut down the socket.", e)
 
     def _cgi_serve(self, request, con_socket, file_name):
-
-        print('Using CGI_SERVE')
+        """
+        Server the requested file output to the socket by running the file
+        as a python script.
+        """
 
         # Create the file path by removing the GET params and saving them.
         request_file_path = self.cgibin + file_name
@@ -106,6 +107,9 @@ class Server():
             self._abort_404(con_socket)
 
     def _serve(self, request, con_socket, file_name):
+        """
+        Serve the requested file to the connection socket.
+        """
 
         request_file_path = None
 
@@ -120,7 +124,6 @@ class Server():
         print(request_file_path)
 
         # If a match has been found in the header, try to open the file
-
         if (os.path.isfile(request_file_path)):
             print("File found!")
             response_content = read_file(request_file_path)
@@ -138,7 +141,7 @@ class Server():
         <html>
         <head><title>404: Page not found!</title></head>
         <body>
-        I could not find your page :(
+        404: Not found.
         </body>
         </html>
         """
@@ -151,7 +154,7 @@ class Server():
         <html>
         <head><title>501: Sorry I don't understand!</title></head>
         <body>
-        I dont understand!
+        501: Not implemented
         </body>
         </html>
         """
@@ -160,6 +163,9 @@ class Server():
         con_socket.send(response_header.encode() + response_content)
 
     def _gen_headers(self, status_code, content_length, content_type):
+        """
+        Generate a header with content type and content length
+        """
 
         header = ''
 
