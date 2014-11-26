@@ -86,11 +86,11 @@ int main(int argc, char *argv[]) {
     point2Point.SetDeviceAttribute("DataRate", StringValue(ss_speed.str()));
     cout << " - DataRate: " << ss_speed.str() << endl;
 
-    NS_LOG_INFO("Setting Latency...");
+    NS_LOG_INFO("Setting Delay...");
     std::stringstream ss_delay;
     ss_delay << "" << delay << "ms";
     point2Point.SetChannelAttribute("Delay", StringValue(ss_delay.str()));
-    cout << " - Latency: " << ss_delay.str() << endl;
+    cout << " - Delay: " << ss_delay.str() << endl;
 
 
     // Set the maximum receiving window size (RWIN)
@@ -117,15 +117,16 @@ int main(int argc, char *argv[]) {
     // Print here the server and client addresses
     serverIPAddress = interfaces.GetAddress(0);
     clientIPAddress = interfaces.GetAddress(1);
-    cout << " - Server address : " << serverIPAddress << endl;
-    cout << " - Client address : " << clientIPAddress << endl;
+    cout << " - Server address: " << serverIPAddress << endl;
+    cout << " - Client address: " << clientIPAddress << endl;
 
 
     // Create TCP applications installed on nodes.
-    NS_LOG_INFO("Creating TCP Applications...");
+    NS_LOG_INFO("Creating TCP applications...");
 
 
     // Create a packet sink on the server to receive packets.
+    NS_LOG_INFO(" - Creating TCP server application...");
     Address serverSinkAddress(InetSocketAddress(serverIPAddress, sinkPort));
     PacketSinkHelper packetSinkHelper(
             "ns3::TcpSocketFactory", serverSinkAddress);
@@ -136,6 +137,7 @@ int main(int argc, char *argv[]) {
 
 
     // Create an OnOff client application to send TCP to the server.
+    NS_LOG_INFO(" - Creating TCP client application...");
     OnOffHelper onOffHelper("ns3::TcpSocketFactory", serverSinkAddress);
     onOffHelper.SetAttribute("OnTime", StringValue(
                 "ns3::ConstantRandomVariable[Constant=1]"));
@@ -153,6 +155,7 @@ int main(int argc, char *argv[]) {
     clientApp.Stop(Seconds(stopTime));
 
     // Enable ascii tracing, you can find the tcp-task1.tr file in the ns-3.17 directory
+    NS_LOG_INFO("Setting up TCP package tracing...");
     AsciiTraceHelper ascii;
     point2Point.EnableAsciiAll(ascii.CreateFileStream("tcp-task1.tr"));
 
@@ -164,12 +167,13 @@ int main(int argc, char *argv[]) {
 
 
     //Install FlowMonitor on all nodes
+    NS_LOG_INFO("Creating FlowMonitor...");
     FlowMonitorHelper flowmon;
     Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
 
     //Set simulation timeout and run.
-    NS_LOG_INFO("Run Simulation.");
+    NS_LOG_INFO("Starting simulation...\n");
     Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
 
@@ -192,14 +196,14 @@ int main(int argc, char *argv[]) {
                     << " -> " << t.destinationAddress << ")\n";
             std::cout << "Start running time: " << i->second.timeFirstTxPacket.GetSeconds() << endl;
             std::cout << "Stop running time:  " << i->second.timeLastRxPacket.GetSeconds() << endl;
-            std::cout << "  Tx Bytes:   " << i->second.txBytes << "\n";
-            std::cout << "  Rx Bytes:   " << i->second.rxBytes << "\n";
-            std::cout << "  Throughput: " << i->second.rxBytes * 8.0
+            std::cout << " - Tx Bytes:   " << i->second.txBytes << "\n";
+            std::cout << " - Rx Bytes:   " << i->second.rxBytes << "\n";
+            std::cout << " - Throughput: " << i->second.rxBytes * 8.0
                     / (i->second.timeLastRxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds())
                     / 1000 / 1000 << " Mbps\n";
         }
     }
 
     Simulator::Destroy();
-    NS_LOG_INFO("Done.");
+    NS_LOG_INFO("\nDone.");
 }

@@ -149,15 +149,25 @@ int main(int argc, char *argv[]) {
     LogComponentEnable ("lab3-task2-timmermanm", LOG_LEVEL_INFO);
 
     //Global configuration
-    double stopTime = 50.0;
+    int delay = 20; //ms
+    int speed = 2; //Mbps
+    uint32_t tcpPacketSize = 1600;
+    double startTime = 1.;
+    double stopTime = 50.;
+    Ptr<Node> clientNode;
+    Ptr<Node> serverNode;
+    Ipv4Address clientIPAddress;
+    Ipv4Address serverIPAddress;
+    DataRate sendRate = DataRate("2Mbps");
 
+    // Set the TCP Socket Type
+    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue (tcpModel));
 
-    //TODO define your Simulation parameters
-    // ...
+    // Set disable of ACK
+    Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(1));
 
-
-    //TODO set here the TCP Socket Type, the disable of ACK and the
-    //DropTailQueue size when is needed ...
+    // Set DropTailQueue size when is needed
+    Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (MAX PACKET));
 
     //TODO print here the tcp socket type and the droptail Queue Size
     cout << "TCP socket type: " << tcpSocketType << endl;
@@ -178,51 +188,72 @@ int main(int argc, char *argv[]) {
 
     // Create pointToPoint channel with specified data rate and delay,
     // without IP addresses first ...
-    NS_LOG_INFO("Creating PointToPointHelper channel...");
-    PointToPointHelper pointToPoint;
+    NS_LOG_INFO("Creating PointToPointHelper...");
+    PointToPointHelper point2Point;
 
     NS_LOG_INFO("Setting DataRate...");
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
+    std::stringstream ss_speed;
+    ss_speed << "" << speed << "Mbps";
+    point2Point.SetDeviceAttribute("DataRate", StringValue(ss_speed.str()));
+    cout << " - DataRate: " << ss_speed.str() << endl;
 
-    NS_LOG_INFO("Setting Latency...");
-    std::stringstream ss;
-    ss << "" << latency << "ms";
-    pointToPoint.SetChannelAttribute("Delay", StringValue(ss.str()));
-
-    NS_LOG_INFO("Install netDevices and assign IP Addresses.");
-
-    // Install netDevices to the nodes and assign IP addresses
-    NetDeviceContainer myDevices;
-    myDevices = pointToPoint.Install(myNodes);
+    NS_LOG_INFO("Setting Delay...");
+    std::stringstream ss_delay;
+    ss_delay << "" << delay << "ms";
+    point2Point.SetChannelAttribute("Delay", StringValue(ss_delay.str()));
+    cout << " - Delay: " << ss_delay.str() << endl;
 
 
-    //TODO print here the server and client IP addresses
-    cout << "Client address : " << clientIPAddress << endl;
-    cout << "Server address : " << serverIPAddress << endl;
+    // Install netDevices to the nodes
+    NS_LOG_INFO("Creating NetDeviceContainer...");
+    NetDeviceContainer devices;
+    devices = point2Point.Install(nodes);
 
-    //Create TCP applications installed on nodes.
+    // Assign IP addresses
+    NS_LOG_INFO("Creating Ipv4AddressHelper...");
+    Ipv4AddressHelper address;
+
+    NS_LOG_INFO("Assigning Ipv4 Addresses...");
+    address.SetBase("10.1.1.0", "255.255.255.252");
+    Ipv4InterfaceContainer interfaces = address.Assign(devices);
+
+    // Print here the server and client addresses
+    serverIPAddress = interfaces.GetAddress(0);
+    clientIPAddress = interfaces.GetAddress(1);
+    cout << " - Server address : " << serverIPAddress << endl;
+    cout << " - Client address : " << clientIPAddress << endl;
+
+    // Create TCP applications installed on nodes.
     NS_LOG_INFO("Create TCP Applications.");
 
 
-    //TODO Create a packet sink on the server to receive packets.
-    // ...
+    // Create a packet sink on the server to receive packets.
+    NS_LOG_INFO(" - Creating TCP server application...");
+    Address serverSinkAddress(InetSocketAddress(serverIPAddress, sinkPort));
+    PacketSinkHelper packetSinkHelper(
+            "ns3::TcpSocketFactory", serverSinkAddress);
+
+    ApplicationContainer serverApp = packetSinkHelper.Install(serverNode);
+    serverApp.Start(Seconds(startTime));
+    serverApp.Stop(Seconds(stopTime));
 
 
-    //Create a TCP client socket
+    // Create a TCP client socket
+    NS_LOG_INFO(" - Creating TCP client application...");
     Ptr<Socket> clientSocket = Socket::CreateSocket(clientNode,
             TcpSocketFactory::GetTypeId());
 
-    //TODO Monitor Congestion window
+    // TODO Monitor Congestion window
     // ...
 
     // Create an application
     Ptr<MyApp> clientApp = CreateObject<MyApp>();
 
 
-    //Bind socket to the application and connect to server with sending date
-    //rate and packet size.  Note: the serverSinkAddress is an Address class
-    //(include also port) and not an Ipv4Address TODO define and initialize the
-    //variables
+    // Bind socket to the application and connect to server with sending date
+    // rate and packet size.  Note: the serverSinkAddress is an Address class
+    // (include also port) and not an Ipv4Address
+    // TODO define and initialize the variables
     clientApp->Setup(clientSocket, serverSinkAddress, tcpPacketSize,
             DataRate(tcpDataRate));
 

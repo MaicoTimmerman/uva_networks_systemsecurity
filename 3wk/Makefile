@@ -6,7 +6,7 @@ NSDIR=ns-allinone-3.17/ns-3.17
 SCRATCHDIR=scratch
 WAFRUN=./waf --run
 SOURCEDIR=src
-SOURCEFILE=lab3-task2-timmermanm.cc
+SOURCEFILE=lab3-task1-timmermanm.cc
 EXECFILE=$(patsubst %.cc,%,$(SOURCEFILE))
 
 run:
