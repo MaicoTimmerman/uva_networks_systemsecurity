@@ -1,6 +1,5 @@
 /*  Networking and System Security: Lab3
- *  lab3-task2-template.cc
- *
+ *  lab3-task2-timmermanm.cc
  *
  *      Author: Chariklis <c.pittaras@uva.nl>
  * This file was created based on the  $NS3 HOME/examples/tutorial/fifth.cc
@@ -151,28 +150,38 @@ int main(int argc, char *argv[]) {
     //Global configuration
     int delay = 20; //ms
     int speed = 2; //Mbps
-    uint32_t tcpPacketSize = 1600;
-    double startTime = 1.;
+    int droptailQueueSize = 20;
+    uint16_t sinkPort = 8080;
+    uint16_t tcpPacketSize = 1600;
+    double serverStartTime = .5;
+    double clientStartTime = 1.;
     double stopTime = 50.;
+    // string tcpSocketType = "ns3::TcpNewReno";
+    // string tcpSocketType = "ns3::TcpTahoe";
+    string tcpSocketType = "ns3::TcpReno";
+
     Ptr<Node> clientNode;
     Ptr<Node> serverNode;
     Ipv4Address clientIPAddress;
     Ipv4Address serverIPAddress;
-    DataRate sendRate = DataRate("2Mbps");
+    DataRate tcpDataRate= DataRate("2Mbps");
 
     // Set the TCP Socket Type
-    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue (tcpModel));
+    NS_LOG_INFO("Setting TCP socket type...");
+    cout << " - TCP socket type: " << tcpSocketType << endl;
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType",
+            StringValue(tcpSocketType));
 
     // Set disable of ACK
+    NS_LOG_INFO("Disabling delayed ACK...");
     Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(1));
 
     // Set DropTailQueue size when is needed
-    Config::SetDefault ("ns3::DropTailQueue::MaxPackets", UintegerValue (MAX PACKET));
-
-    //TODO print here the tcp socket type and the droptail Queue Size
-    cout << "TCP socket type: " << tcpSocketType << endl;
-    cout << "Droptail Queue Size: " << droptailQueueSize << " packets" << endl;
-
+    NS_LOG_INFO("Setting Droptail queue size...");
+    Config::SetDefault("ns3::DropTailQueue::MaxPackets",
+            UintegerValue(droptailQueueSize));
+    cout << " - Droptail Queue Size: " << droptailQueueSize <<
+        " packets" << endl;
 
     // Create network topology using NodeContainer class
     NS_LOG_INFO("Creating nodes...");
@@ -226,7 +235,6 @@ int main(int argc, char *argv[]) {
     // Create TCP applications installed on nodes.
     NS_LOG_INFO("Create TCP Applications.");
 
-
     // Create a packet sink on the server to receive packets.
     NS_LOG_INFO(" - Creating TCP server application...");
     Address serverSinkAddress(InetSocketAddress(serverIPAddress, sinkPort));
@@ -234,17 +242,17 @@ int main(int argc, char *argv[]) {
             "ns3::TcpSocketFactory", serverSinkAddress);
 
     ApplicationContainer serverApp = packetSinkHelper.Install(serverNode);
-    serverApp.Start(Seconds(startTime));
+    serverApp.Start(Seconds(serverStartTime));
     serverApp.Stop(Seconds(stopTime));
-
 
     // Create a TCP client socket
     NS_LOG_INFO(" - Creating TCP client application...");
     Ptr<Socket> clientSocket = Socket::CreateSocket(clientNode,
             TcpSocketFactory::GetTypeId());
 
-    // TODO Monitor Congestion window
-    // ...
+    // Monitor Congestion window
+    clientSocket->TraceConnectWithoutContext("CongestionWindow",
+            MakeCallback(&CWndTracer));
 
     // Create an application
     Ptr<MyApp> clientApp = CreateObject<MyApp>();
@@ -253,12 +261,12 @@ int main(int argc, char *argv[]) {
     // Bind socket to the application and connect to server with sending date
     // rate and packet size.  Note: the serverSinkAddress is an Address class
     // (include also port) and not an Ipv4Address
-    // TODO define and initialize the variables
     clientApp->Setup(clientSocket, serverSinkAddress, tcpPacketSize,
             DataRate(tcpDataRate));
 
     // Install the application to the client node
     clientNode->AddApplication(clientApp);
+
     // Set start and stop running time of the app.
     clientApp->SetStartTime(Seconds(clientStartTime));
     clientApp->SetStopTime(Seconds(stopTime));
@@ -266,14 +274,14 @@ int main(int argc, char *argv[]) {
     // Enable ascii tracing, you can find the tcp-task2.tr file in the ns-3.17
     // directory
     AsciiTraceHelper ascii;
-    pointToPoint.EnableAsciiAll(ascii.CreateFileStream("tcp-task2.tr"));
+    point2Point.EnableAsciiAll(ascii.CreateFileStream("tcp-task2.tr"));
 
-    //Install FlowMonitor on all nodes
+    // Install FlowMonitor on all nodes
     FlowMonitorHelper flowmon;
     Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
     // Set simulation timeout and run.
-    NS_LOG_INFO("Run Simulation.");
+    NS_LOG_INFO("Starting simulation...\n");
     Simulator::Stop(Seconds(stopTime));
     Simulator::Run();
 
@@ -291,16 +299,19 @@ int main(int argc, char *argv[]) {
         /*if ((t.destinationAddress == udpServerAddress))*/ {
             std::cerr << "Flow " << i->first << " (" << t.sourceAddress
                 << " -> " << t.destinationAddress << ")\n";
-            std::cerr << "Start running time: " << i->second.timeFirstTxPacket.GetSeconds() << endl;
-            std::cerr << "Stop running time:  " << i->second.timeLastRxPacket.GetSeconds() << endl;
+            std::cerr << "Start running time: " <<
+                i->second.timeFirstTxPacket.GetSeconds() << endl;
+            std::cerr << "Stop running time:  " <<
+                i->second.timeLastRxPacket.GetSeconds() << endl;
             std::cerr << "  Tx Bytes:   " << i->second.txBytes << "\n";
             std::cerr << "  Rx Bytes:   " << i->second.rxBytes << "\n";
             std::cerr << "  Throughput: " << i->second.rxBytes * 8.0
-                / (i->second.timeLastRxPacket.GetSeconds() - i->second.timeFirstTxPacket.GetSeconds())
+                / (i->second.timeLastRxPacket.GetSeconds() -
+                        i->second.timeFirstTxPacket.GetSeconds())
                 / 1000 / 1000 << " Mbps\n";
         }
     }
 
     Simulator::Destroy();
-    NS_LOG_INFO("Done.");
+    NS_LOG_INFO("\nDone.");
 }

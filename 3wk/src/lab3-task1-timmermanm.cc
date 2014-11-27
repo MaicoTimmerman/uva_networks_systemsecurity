@@ -1,5 +1,5 @@
-/*  Networking and System Security Assignment: Lab3
- *  lab3-task1-template.cc
+/*  Networking and Security Assignment: Lab3
+ *  lab3-task1-timmermanm.cc
  *
  *  Created on: Sept 01, 2013
  *      Author: Chariklis <c.pittaras@uva.nl>
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     // Define your Simulation parameters
     int delay = 50; //ms
     int speed = 5; //Mbps
-    int max_rwin = 16384;
+    int max_rwin = 31250;
     uint16_t sinkPort = 8080;
     double startTime = 1.;
     double stopTime = 50.;
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     Ptr<Node> serverNode;
     Ipv4Address clientIPAddress;
     Ipv4Address serverIPAddress;
-    DataRate sendRate = DataRate("2Mbps");
+    DataRate sendRate = DataRate("5Mbps");
 
     // Enable logging at level INFO
     LogComponentEnable("lab3-task1-timmermanm", LOG_LEVEL_INFO);
