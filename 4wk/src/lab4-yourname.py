@@ -1,11 +1,10 @@
 ## Netwerken en Systeembeveiliging Lab 4 - Distributed Sensor Network
-## NAME:
+## NAME: Robin Klusman & Maico Timmerman
 ## STUDENT ID:
 import struct
-from socket import *
+import socket
 from random import randint
 from gui import MainWindow
-from sensor import *
 
 
 # Get random position in NxN grid.
@@ -27,24 +26,30 @@ def main(mcast_addr,
     ping_period: time in seconds between multicast pings.
     """
     # -- Create the multicast listener socket. --
-    mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+    mcast = socket.socket(socket.AF_INET,
+                          socket.SOCK_DGRAM,
+                          socket.IPPROTO_UDP)
     # Sets the socket address as reusable so you can run multiple instances
     # of the program on the same machine at the same time.
-    mcast.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    mcast.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Subscribe the socket to multicast messages from the given address.
-    mreq = struct.pack('4sl', inet_aton(mcast_addr[0]), INADDR_ANY)
-    mcast.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP, mreq)
+    mreq = struct.pack('4sl',
+                       socket.inet_aton(mcast_addr[0]),
+                       socket.INADDR_ANY)
+    mcast.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     mcast.bind(mcast_addr)
 
     # -- Create the peer-to-peer socket. --
-    peer = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+    peer = socket.socket(socket.AF_INET,
+                         socket.SOCK_DGRAM,
+                         socket.IPPROTO_UDP)
     # Set the socket multicast TTL so it can send multicast messages.
-    peer.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, 5)
+    peer.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 5)
     # Bind the socket to a random port.
     if sys.platform == 'win32':  # windows special case
-        peer.bind(('localhost', INADDR_ANY))
+        peer.bind(('localhost', socket.INADDR_ANY))
     else:  # should work for everything else
-        peer.bind(('', INADDR_ANY))
+        peer.bind(('', socket.INADDR_ANY))
 
     # -- make the gui --
     window = MainWindow()
