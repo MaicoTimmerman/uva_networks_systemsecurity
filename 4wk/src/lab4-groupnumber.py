@@ -57,48 +57,28 @@ def main(mcast_addr,
     window.writeln('my position is (%s, %s)' % sensor_pos)
     window.writeln('my sensor value is %s' % sensor_val)
 
+    function_dict = {
+        "ping": ping_cmd,
+        "list": list_cmd,
+        "move": move_cmd,
+        "echo": echo_cmd,
+        "size": size_cmd,
+        "value": None,
+        "min": None,
+        "max": None,
+        "quit": window.quit,
+        "exit": window.quit
+    }
+
     # -- This is the event loop. --
     while window.update():
         message = window.getline()
         if message:
-            if message == 'ping':
-                window.write('ping.\n')
-                ping_cmd()
-                pass
-            elif message == 'list':
-                window.write('list.\n')
-                list_cmd()
-                pass
-            elif message == 'move':
-                window.write('move.\n')
-                move_cmd()
-                pass
-            elif message == 'echo':
-                window.write('echo.\n')
-                echo_cmd()
-                pass
-            elif message == 'size':
-                window.write('size.\n')
-                size_cmd()
-                pass
-
-            elif message == 'value':  # Bonus
-                window.write('value.\n')
-                pass
-            elif message == 'min':    # Bonus
-                window.write('min.\n')
-                pass
-            elif message == 'max':    # Bonus
-                window.write('max.\n')
-                pass
-
-            elif message == 'quit' or message == 'exit':
-                window.write('Exiting..\n')
-                window.quit()
-            else:
-                window.write('Unknown command.\n')
-                helptext(window)
-        pass
+            args = []
+            try:
+                function_dict[message](*args)
+            except KeyError:
+                window.writeln('Unknown command.')
 
 
 def ping_cmd():
