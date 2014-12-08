@@ -88,6 +88,7 @@ class SensorNode():
             "ECHO": self.echo_recv,
         }
 
+        # Start the main loop
         self.loop()
 
     def loop(self):
