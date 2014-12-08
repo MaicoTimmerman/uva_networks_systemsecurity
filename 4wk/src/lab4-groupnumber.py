@@ -24,6 +24,8 @@ class SensorNode():
         """
         # Sequence number used for tracking echos
         self.sequence = 0
+        self.echos_recvd = []
+        self.neighbours = []
 
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -75,6 +77,10 @@ class SensorNode():
             "help": self.helptext,
         }
 
+        receive_dict = {
+            "ECHO": self.echo_recv,
+        }
+
         # -- This is the event loop. --
         while self._window.update():
             input_ready, output_ready, except_ready = \
@@ -86,8 +92,14 @@ class SensorNode():
                     # TODO Remove source from list, or re-scan
                     pass
                 else:
-                    # TODO Check what we received and do the appropriate action
-                    pass
+                    try:
+                        receive_dict[message](*self._args)
+                    except KeyError:
+                        self._window.writeln('Unknown message received.')
+                    except IndexError:
+                        self._window.writeln('To few arguments for: %s' % message)
+                    except TypeError:
+                        self._window.writeln('Not implemented: %s' % message)
 
             message = self._window.getline()
             if message:
@@ -116,16 +128,39 @@ class SensorNode():
         self._window.writeln("Im now doing move")
         pass
 
-    def echo_cmd(self):
-        self.list_cmd()
+    def echo_cmd(self, father=None):
         i = 0
+        if not father:
+            self.list_cmd()
         while self.neighbours[i]:
-            # TODO Send echo to neighbour
+            if father != self.neighbours[i]:
+                # TODO Send echo to neighbour
+                pass
             i += 1
-            self.sequence += 1
 
-        self._window.writeln("Im now doing echo")
+        self.sequence += 1
+
+    def echo_reply(self, dest):
         pass
+
+    def echo_recv(self, echo_msg, source):
+        self.list_cmd()
+        echo = echo_msg.split()
+
+        if echo in self.echos_recvd:
+            # Already received so ECHO_REPLY
+            self.echo_reply(source)
+        else:
+            # Make sender father and add to echos_recvd
+            father = source
+            self.echos_recvd.append(echo.append(father))
+
+            if len(self.neighbours) == 1:
+                # No neighbours except for the father
+                self.echo_reply(father)
+            else:
+                # Send on to neighbours
+                self.echo_cmd(father)
 
     def size_cmd(self):
         self._window.writeln("Im now doing size")
