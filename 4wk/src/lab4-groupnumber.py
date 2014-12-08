@@ -78,7 +78,9 @@ class SensorNode():
         }
 
         receive_dict = {
-            "ECHO": self.echo_recv,  # TODO define what we receive and fix
+            # Echo defined as
+            # 'ECHO <initiator> <sequence> <source> <operation> <payload>'
+            "ECHO": self.echo_recv,
         }
 
         # -- This is the event loop. --
@@ -92,8 +94,10 @@ class SensorNode():
                     # TODO Remove source from list, or re-scan
                     pass
                 else:
+                    message = message.split()
+                    data = message[1:]
                     try:
-                        receive_dict[message](*self._args)
+                        receive_dict[message[0]](data)
                     except KeyError:
                         self._window.writeln('Unknown message received.')
                     except IndexError:
@@ -102,18 +106,18 @@ class SensorNode():
                     except TypeError:
                         self._window.writeln('Not implemented: %s' % message)
 
-            input = self._window.getline()
-            if input:
-                self._window.writeln(input)
+            input_ln = self._window.getline()
+            if input_ln:
+                self._window.writeln(input_ln)
                 self._args = []
                 try:
-                    function_dict[input.lower()](*self._args)
+                    function_dict[input_ln.lower()](*self._args)
                 except KeyError:
                     self._window.writeln('Unknown command.')
                 except IndexError:
-                    self._window.writeln('To few arguments for: %s' % input)
+                    self._window.writeln('To few arguments for: %s' % input_ln)
                 except TypeError:
-                    self._window.writeln('Not implemented: %s' % input)
+                    self._window.writeln('Not implemented: %s' % input_ln)
 
     def ping_cmd(self):
         self._window.writeln("Im now doing ping")
@@ -144,24 +148,26 @@ class SensorNode():
     def echo_reply(self, dest):
         pass
 
-    def echo_recv(self, echo_msg, source):
+    def echo_recv(self, echo_data):
         self.list_cmd()
-        echo = echo_msg.split()
+        if len(echo_data) == 5:
+            echo_id = echo_data[0:2]
+            source = echo_data[2]
 
-        if echo in self.echos_recvd:
-            # Already received so ECHO_REPLY
-            self.echo_reply(source)
-        else:
-            # Make sender father and add to echos_recvd
-            father = source
-            self.echos_recvd.append(echo.append(father))
-
-            if len(self.neighbours) == 1:
-                # No neighbours except for the father
-                self.echo_reply(father)
+            if echo_id in self.echos_recvd:
+                # Already received so ECHO_REPLY
+                self.echo_reply()
             else:
-                # Send on to neighbours
-                self.echo_cmd(father)
+                # Make sender father and add to echos_recvd
+                father = source
+                self.echos_recvd.append(echo_id)
+
+                if len(self.neighbours) == 1:
+                    # No neighbours except for the father
+                    self.echo_reply(father)
+                else:
+                    # Send on to neighbours
+                    self.echo_cmd(father)
 
     def size_cmd(self):
         self._window.writeln("Im now doing size")
