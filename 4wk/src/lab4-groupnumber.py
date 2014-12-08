@@ -59,7 +59,81 @@ def main(mcast_addr,
 
     # -- This is the event loop. --
     while window.update():
+        message = window.getline()
+        if message:
+            if message == 'ping':
+                window.write('ping.\n')
+                ping_cmd()
+                pass
+            elif message == 'list':
+                window.write('list.\n')
+                list_cmd()
+                pass
+            elif message == 'move':
+                window.write('move.\n')
+                move_cmd()
+                pass
+            elif message == 'echo':
+                window.write('echo.\n')
+                echo_cmd()
+                pass
+            elif message == 'size':
+                window.write('size.\n')
+                size_cmd()
+                pass
+
+            elif message == 'value':  # Bonus
+                window.write('value.\n')
+                pass
+            elif message == 'min':    # Bonus
+                window.write('min.\n')
+                pass
+            elif message == 'max':    # Bonus
+                window.write('max.\n')
+                pass
+
+            elif message == 'quit' or message == 'exit':
+                window.write('Exiting..\n')
+                window.quit()
+            else:
+                window.write('Unknown command.\n')
+                helptext(window)
         pass
+
+
+def ping_cmd():
+    pass
+
+
+def list_cmd():
+    pass
+
+
+def move_cmd():
+    pass
+
+
+def echo_cmd():
+    pass
+
+
+def size_cmd():
+    pass
+
+
+def helptext(window):
+    # Required
+    window.write('List of available commands:\n' +
+                 'ping  : Sends a multicast ping message.\n' +
+                 'list  : List all known neighbours.\n' +
+                 'move  : Move this node to random new position.\n' +
+                 'echo  : Initiate echo wave.\n' +
+                 'size  : Get the size of the network.\n')
+    # Bonus
+    window.write('value : New random sensor value.\n' +
+                 'sum   : Sum all sensor values.\n' +
+                 'min   : Minimum of all sensor values.\n' +
+                 'max   : Maximum of all sensor values.\n')
 
 
 # -- program entry point --
