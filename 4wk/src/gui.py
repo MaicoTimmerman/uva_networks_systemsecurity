@@ -22,7 +22,7 @@ class MainWindow(object):
         scrolly = tk.Scrollbar(frame)
         scrolly.pack(side=tk.RIGHT, fill=tk.Y)
         self._txtlog = tk.Text(frame)
-        self._txtlog.config(width=80, height=24)
+        self._txtlog.config(width=80, height=10)
         self._txtlog.config(state='disabled')
         self._txtlog.pack(fill=tk.BOTH)
         scrolly.config(command=self._txtlog.yview)

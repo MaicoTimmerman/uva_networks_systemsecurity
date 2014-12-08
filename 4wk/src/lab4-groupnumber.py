@@ -2,7 +2,8 @@
 ## NAME: Robin Klusman & Maico Timmerman
 ## STUDENT ID:
 import struct
-import select
+from math import sqrt
+from select import select
 from socket import socket, inet_aton
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
     IPPROTO_UDP, INADDR_ANY, IPPROTO_IP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL
@@ -31,7 +32,8 @@ class SensorNode():
         self.neighbours = {}
         self.mcast_addr = mcast_addr
         self.sensor_pos = sensor_pos
-        self.sensor_range = sensor_range
+        # self.sensor_range = sensor_range
+        self.sensor_range = 150
         self.sensor_val = sensor_val
         self.grid_size = grid_size
         self.ping_period = ping_period
@@ -85,7 +87,8 @@ class SensorNode():
         self.recv_funct_dict = {
             # Echo defined as
             # (type, sequence, (ix, iy), (nx, ny), operation, payload)
-            "ECHO": self.echo_recv,
+            MSG_PING: self.recv_ping,
+            MSG_PONG: self.recv_pong,
         }
 
         # Start the main loop
@@ -107,13 +110,14 @@ class SensorNode():
 
                 # Decode the message
                 msg_type, sequence, initiator, source, operation, \
-                    payload = message_decode(message)
+                    payload = message_decode(message[0])
                 recv_function_args = \
                     [sequence, initiator, source, operation, payload]
 
                 # Call the respective function to handle the request
                 try:
-                    self.recv_funct_dict[msg_type](sock, *recv_function_args)
+                    self.recv_funct_dict[msg_type](message[1],
+                                                   *recv_function_args)
                 except KeyError:
                     self._window.writeln('Unknown data received.')
                 except IndexError:
@@ -130,9 +134,6 @@ class SensorNode():
                     self._window.writeln('Unknown command.')
                 except IndexError:
                     self._window.writeln('To few arguments for: %s' % input_ln)
-                # TODO delete after
-                except TypeError:
-                    self._window.writeln('Not implemented: %s' % input_ln)
 
     def exec_ping(self):
         """
@@ -143,11 +144,52 @@ class SensorNode():
         data = message_encode(MSG_PING, -1, self.sensor_pos, self.sensor_pos)
         self.peer.sendto(data, self.mcast_addr)
 
-    def list_cmd(self):
-        self._window.writeln("Im now doing list")
-        self.neighbours  # = ...
+    def recv_ping(self, addr, *args):
+        """
+        When receiving a ping request, return a pong
+        """
+        if (len(args) != 5):
+            self._window.writeln('Received incorrect data...')
+            return
 
-        pass
+        # Ignoring ping message from self
+        if (addr[1] == self.peer.getsockname()[1]):
+            return
+
+        # Check if in range
+        source = args[2]
+        dx = source[0] - self.sensor_pos[0]
+        dy = source[1] - self.sensor_pos[1]
+        distance = sqrt(pow(dx, 2) + pow(dy, 2))
+        if (distance <= self.sensor_range):
+            self._window.writeln('Received a ping message from (' +
+                                 str(source[0]) + ',' + str(source[1]) +
+                                 '), returning Pong...')
+            # Send PONG
+            data = message_encode(MSG_PONG, -1, source, self.sensor_pos)
+            self.peer.sendto(data, addr)
+
+    def recv_pong(self, addr, *args):
+        """
+        Register the pong sender as a neighbour
+        """
+        if (len(args) != 5):
+            self._window.writeln('Received incorrect data...')
+            return
+
+        source = args[2]
+        self._window.writeln('Received a pong message from (' + str(source[0])
+                             + ',' + str(source[1]) + '), registering...')
+
+        # Register neighbour
+        self.neighbours[source] = addr
+
+    def list_cmd(self):
+        self._window.writeln("All current neighbours:")
+
+        for location in self.neighbours:
+            self._window.write(" - " + str(location) + ": " +
+                               str(self.neighbours[location]) + "\n")
 
     def move_cmd(self):
         self._window.writeln("Im now doing move")
