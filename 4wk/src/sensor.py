@@ -1,6 +1,7 @@
 ## Netwerken en Systeembeveiliging
 ## Lab 4 - Distributed Sensor Network
 ## Definitions and message format
+## Author: Robin Klusman & Maico Timmerman
 import struct
 
 ## These are the message types.
@@ -10,11 +11,11 @@ MSG_ECHO = 2  # Unicast echo.
 MSG_ECHO_REPLY = 3  # Unicast echo reply.
 
 ## These are the echo operations.
-OP_NOOP = 0        # Do nothing.
-OP_SIZE = 1        # Compute the size of network.
-OP_SUM = 2        # Compute the sum of all sensor values.
-OP_MIN = 3        # Compute the lowest sensor value.
-OP_MAX = 4        # Compute the highest sensor value.
+OP_NOOP = 0  # Do nothing.
+OP_SIZE = 1  # Compute the size of network.
+OP_SUM = 2  # Compute the sum of all sensor values.
+OP_MIN = 3  # Compute the lowest sensor value.
+OP_MAX = 4  # Compute the highest sensor value.
 
 ## This is used to pack message fields into a binary format.
 message_format = struct.Struct('!7if')
