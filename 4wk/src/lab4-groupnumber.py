@@ -72,10 +72,10 @@ class SensorNode():
 
         self.win_function_dict = {
             "ping": self.exec_ping,
-            "list": self.list_cmd,
-            "move": self.move_cmd,
-            "echo": self.echo_cmd,
-            "size": self.size_cmd,
+            "list": self.exec_list,
+            "move": self.exec_move,
+            "echo": self.exec_echo,
+            "size": self.exec_size,
             "value": None,
             "sum": None,
             "min": None,
@@ -86,11 +86,14 @@ class SensorNode():
         }
 
         self.recv_funct_dict = {
-            # Echo defined as
-            # (type, sequence, (ix, iy), (nx, ny), operation, payload)
             MSG_PING: self.recv_ping,
             MSG_PONG: self.recv_pong,
+            MSG_ECHO: self.recv_echo,
+            MSG_ECHO_REPLY: self.recv_echo_reply,
         }
+
+        # Discover neighbours
+        self.exec_ping()
 
         # Start the main loop
         self.loop()
@@ -136,7 +139,7 @@ class SensorNode():
                 except IndexError:
                     self._window.writeln('To few arguments for: %s' % input_ln)
 
-    def exec_ping(self):
+    def exec_ping(self, *args):
         """
         Empty the neighbour list and execute a ping request
         """
@@ -185,7 +188,7 @@ class SensorNode():
         # Register neighbour
         self.neighbours[source] = addr
 
-    def list_cmd(self):
+    def exec_list(self):
         """
         List all neighbours registered during ping
         """
@@ -194,44 +197,76 @@ class SensorNode():
             self._window.write(" - " + str(location) + ": " +
                                str(self.neighbours[location]) + "\n")
 
-    def move_cmd(self):
+    def exec_move(self):
         sensor_pos = random_position(self.grid_size)
         self._window.writeln('my new position is (%s, %s)' % sensor_pos)
         self.sensor_pos = sensor_pos
 
-    def echo_cmd(self, father=None):
+    def exec_value(self):
+        value = randint(0, 100)
+        self._window.writeln('my new sensor value is %s' % value)
+        self.sensor_val = value
+
+    def exec_sum(self):
+        pass
+
+    def exec_min(self):
+        pass
+
+    def exec_max(self):
+        pass
+
+    def exec_size(self):
+        self._window.writeln("Im now doing size")
+        pass
+
+    def exec_echo(self):
+        """
+        Abstraction layer for the gui interface echo command
+        """
+        self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_NOOP)
+        self.echo_sequence += 1
+
+    def send_echo(self, sequence, initiator, father, operation=0, payload=0):
+        """
+        Send an ECHO command to all but the father
+        """
         for position in self.neighbours:
             if father != position:
-                # TODO Send echo to neighbour
-                pass
-
-        self.sequence += 1
+                data = message_encode(MSG_ECHO, sequence, initiator,
+                                      self.sensor_pos, operation, payload)
+                self.peer.sendto(data, self.neighbours[position])
 
     def recv_echo(self, addr, *args):
         if (len(args) != 5):
             self._window.writeln('Received incorrect data...')
             return
 
+        # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
         source = args[2]
 
         if echo_id in self.echos_recvd:
             # Already received so ECHO_REPLY
-            self.echo_reply(source)
+            # self.send_echo_reply(source)
+            print("replying")
+            pass
         else:
             # Make sender father and add to echos_recvd
             father = source
-            self.echos_recvd.append(echo_id)
-            self.fathers[echo_id] = father
 
             if len(self.neighbours) == 1:
                 # No neighbours except for the father
-                self.echo_reply(father)
+                # self.send_echo_reply(father)
+                print("replying")
+                pass
             else:
                 # Send on to neighbours
-                self.echo_cmd(father)
+                self.send_echo(args[0], args[1], father, args[3], args[4])
+                self.fathers[echo_id] = father
+                self.echos_recvd.append(echo_id)
 
-    def echo_reply(self, dest):
+    def send_echo_reply(self, dest):
         pass
 
     def recv_echo_reply(self, addr, *args):
@@ -239,16 +274,15 @@ class SensorNode():
             self._window.writeln('Received incorrect data...')
             return
 
+        # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
 
         # TODO Somehow save the received echo's
         # TODO After saving, check if we have all, if so
         if 'received all':
-            self.echo_reply(self.fathers[echo_id])
-
-    def size_cmd(self):
-        self._window.writeln("Im now doing size")
-        pass
+            self.send_echo_reply(self.fathers[echo_id])
+            del self.fathers[echo_id]
+            self.echos_recvd.remove(echo_id)
 
     def helptext(self):
         # Required
