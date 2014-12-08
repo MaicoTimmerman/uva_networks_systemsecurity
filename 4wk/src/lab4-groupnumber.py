@@ -94,6 +94,13 @@ class SensorNode():
             MSG_ECHO_REPLY: self.recv_echo_reply,
         }
 
+        self.op_dict = {
+            OP_SIZE: self.calc_sum,
+            OP_SUM: self.calc_sum,
+            OP_MIN: self.calc_min,
+            OP_MAX: self.calc_max,
+        }
+
         # Discover neighbours
         self.exec_ping()
 
@@ -210,17 +217,38 @@ class SensorNode():
         self.sensor_val = value
 
     def exec_sum(self):
-        pass
+        self.send_echo(self.echo_sequence, self.sensor_pos, None,
+                       OP_SUM, self.sensor_val)
+        self.echo_sequence += 1
 
     def exec_min(self):
-        pass
+        self.send_echo(self.echo_sequence, self.sensor_pos, None,
+                       OP_MIN, self.sensor_val)
+        self.echo_sequence += 1
 
     def exec_max(self):
-        pass
+        self.send_echo(self.echo_sequence, self.sensor_pos, None,
+                       OP_MAX, self.sensor_val)
+        self.echo_sequence += 1
 
     def exec_size(self):
-        self._window.writeln("Im now doing size")
-        pass
+        self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 1)
+        self.echo_sequence += 1
+
+    def calc_sum(self, value1, value2):
+        return (value1 + value2)
+
+    def calc_min(self, value1, value2):
+        if value2 > value1:
+            return value2
+        else:
+            return value1
+
+    def calc_max(self, value1, value2):
+        if value2 < value1:
+            return value2
+        else:
+            return value1
 
     def exec_echo(self):
         """
@@ -251,21 +279,24 @@ class SensorNode():
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
         source = args[2]
+        payload = args[4]
+
+
 
         if echo_id in self.echos_recvd:
+            payload = do_op(args[3], payload)
             # Already received so ECHO_REPLY
             # self.send_echo_reply(source)
-            print("replying")
             pass
         else:
             # Make sender father and add to echos_recvd
             father = source
 
             if len(self.neighbours) == 1:
+                payload = do_op(args[3], payload)
                 # No neighbours except for the father
                 # self.send_echo_reply(father)
                 print("replying")
-                pass
             else:
                 # Send on to neighbours
                 self.send_echo(args[0], args[1], father, args[3], args[4])
