@@ -53,7 +53,8 @@ class SensorNode():
         # Bind the socket to a random port.
         if sys.platform == 'win32':  # windows special case
             self.peer.bind(('localhost', INADDR_ANY))
-        else:  # should work for everything else
+        # should work for everything else
+        else:
             self.peer.bind(('', INADDR_ANY))
 
         # -- make the gui --
@@ -102,18 +103,18 @@ class SensorNode():
                     except TypeError:
                         self._window.writeln('Not implemented: %s' % message)
 
-            input = self._window.getline()
-            if input:
-                self._window.writeln(input)
+            win_input = self._window.getline()
+            if win_input:
+                self._window.writeln(win_input)
                 self._args = []
                 try:
-                    function_dict[input.lower()](*self._args)
+                    function_dict[win_input.lower()](*self._args)
                 except KeyError:
                     self._window.writeln('Unknown command.')
                 except IndexError:
-                    self._window.writeln('To few arguments for: %s' % input)
+                    self._window.writeln('To few arguments in: %s' % win_input)
                 except TypeError:
-                    self._window.writeln('Not implemented: %s' % input)
+                    self._window.writeln('Not implemented: %s' % win_input)
 
     def ping_cmd(self):
         self._window.writeln("Im now doing ping")
