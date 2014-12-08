@@ -8,6 +8,9 @@ from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
     IPPROTO_UDP, INADDR_ANY, IPPROTO_IP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL
 from random import randint
 from gui import MainWindow
+from sensor import message_encode, message_decode
+from sensor import MSG_PING, MSG_PONG, MSG_ECHO, MSG_ECHO_REPLY, \
+    OP_NOOP, OP_SIZE, OP_SUM, OP_MIN, OP_MAX
 
 
 class SensorNode():
@@ -53,7 +56,8 @@ class SensorNode():
         # Bind the socket to a random port.
         if sys.platform == 'win32':  # windows special case
             self.peer.bind(('localhost', INADDR_ANY))
-        else:  # should work for everything else
+        # should work for everything else
+        else:
             self.peer.bind(('', INADDR_ANY))
 
         # -- make the gui --
@@ -87,8 +91,8 @@ class SensorNode():
         while self._window.update():
             input_ready, output_ready, except_ready = \
                 select([self.mcast, self.peer], [], [], 0)
-            for rdy_socket in input_ready:
-                message = rdy_socket.recv(1024)
+            for sock in input_ready:
+                message = sock.recv(1024)
                 if not message:
                     # Source has disconnected
                     # TODO Remove source from list, or re-scan
@@ -99,12 +103,13 @@ class SensorNode():
                     try:
                         receive_dict[message[0]](data)
                     except KeyError:
-                        self._window.writeln('Unknown message received.')
+                        self._window.writeln('Unknown data received.')
                     except IndexError:
                         self._window.writeln('To few arguments for: %s'
-                                             % message)
+                                             % message[0])
                     except TypeError:
-                        self._window.writeln('Not implemented: %s' % message)
+                        self._window.writeln('Not implemented: %s'
+                                             % message[0])
 
             input_ln = self._window.getline()
             if input_ln:
