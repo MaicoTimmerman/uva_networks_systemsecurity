@@ -8,6 +8,9 @@ from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
     IPPROTO_UDP, INADDR_ANY, IPPROTO_IP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL
 from random import randint
 from gui import MainWindow
+from sensor import message_encode, message_decode
+from sensor import MSG_PING, MSG_PONG, MSG_ECHO, MSG_ECHO_REPLY, \
+    OP_NOOP, OP_SIZE, OP_SUM, OP_MIN, OP_MAX
 
 
 class SensorNode():
@@ -86,22 +89,22 @@ class SensorNode():
         while self._window.update():
             input_ready, output_ready, except_ready = \
                 select([self.mcast, self.peer], [], [], 0)
-            for rdy_socket in input_ready:
-                message = rdy_socket.recv(1024)
-                if not message:
+            for sock in input_ready:
+                data = sock.recv(1024)
+                if not data:
                     # Source has disconnected
                     # TODO Remove source from list, or re-scan
                     pass
                 else:
                     try:
-                        receive_dict[message](*self._args)
+                        receive_dict[data](*self._args)
                     except KeyError:
-                        self._window.writeln('Unknown message received.')
+                        self._window.writeln('Unknown data received.')
                     except IndexError:
                         self._window.writeln('To few arguments for: %s'
-                                             % message)
+                                             % data)
                     except TypeError:
-                        self._window.writeln('Not implemented: %s' % message)
+                        self._window.writeln('Not implemented: %s' % data)
 
             win_input = self._window.getline()
             if win_input:

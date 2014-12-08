@@ -24,30 +24,32 @@ message_format = struct.Struct('!7if')
 message_length = message_format.size
 
 
-def message_encode(type, sequence, initiator, neighbor,
+def message_encode(msg_type, sequence, initiator, neighbor,
                    operation=0, payload=0):
     """
     Encodes message fields into a binary format.
-    type: The message type.
+
+    msg_type: The message type.
     sequence: The wave sequence number.
     initiator: An (x, y) tuple that contains the initiator's position.
     neighbor: An (x, y) tuple that contains the neighbor's position.
     operation: The echo operation.
     payload: Echo operation data (a number).
+
     Returns: A binary string in which all parameters are packed.
     """
     ix, iy = initiator
     nx, ny = neighbor
-    return message_format.pack(type, sequence,
+    return message_format.pack(msg_type, sequence,
                                ix, iy, nx, ny, operation, payload)
 
 
-def message_decode(buffer):
+def message_decode(bin_data):
     """
     Decodes a binary message string to Python objects.
-    buffer: The binary string to decode.
+    bin_data: The binary string to decode.
     Returns: A tuple containing all the unpacked message fields.
     """
     type, sequence, ix, iy, nx, ny, operation, payload = \
-        message_format.unpack(buffer)
+        message_format.unpack(bin_data)
     return (type, sequence, (ix, iy), (nx, ny), operation, payload)
