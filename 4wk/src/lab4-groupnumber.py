@@ -186,15 +186,18 @@ class SensorNode():
         self.neighbours[source] = addr
 
     def list_cmd(self):
+        """
+        List all neighbours registered during ping
+        """
         self._window.writeln("All current neighbours:")
-
         for location in self.neighbours:
             self._window.write(" - " + str(location) + ": " +
                                str(self.neighbours[location]) + "\n")
 
     def move_cmd(self):
-        self._window.writeln("Im now doing move")
-        pass
+        sensor_pos = random_position(self.grid_size)
+        self._window.writeln('my new position is (%s, %s)' % sensor_pos)
+        self.sensor_pos = sensor_pos
 
     def echo_cmd(self, father=None):
         for position in self.neighbours:
