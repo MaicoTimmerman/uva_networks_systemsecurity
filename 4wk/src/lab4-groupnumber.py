@@ -1,6 +1,6 @@
 ## Netwerken en Systeembeveiliging Lab 4 - Distributed Sensor Network
 ## NAME: Robin Klusman & Maico Timmerman
-## STUDENT ID:
+## STUDENT ID: 10675671
 import struct
 from math import sqrt
 from select import select
@@ -37,6 +37,7 @@ class SensorNode():
         self.sensor_val = sensor_val
         self.grid_size = grid_size
         self.ping_period = ping_period
+        self.fathers = {}
 
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -196,40 +197,51 @@ class SensorNode():
         pass
 
     def echo_cmd(self, father=None):
-        i = 0
-        if not father:
-            self.list_cmd()
-        while self.neighbours[i]:
-            if father != self.neighbours[i]:
+        for position in self.neighbours:
+            if father != position:
                 # TODO Send echo to neighbour
                 pass
-            i += 1
 
         self.sequence += 1
+
+    def recv_echo(self, addr, *args):
+        if (len(args) != 5):
+            self._window.writeln('Received incorrect data...')
+            return
+
+        echo_id = args[0:2]
+        source = args[2]
+
+        if echo_id in self.echos_recvd:
+            # Already received so ECHO_REPLY
+            self.echo_reply(source)
+        else:
+            # Make sender father and add to echos_recvd
+            father = source
+            self.echos_recvd.append(echo_id)
+            self.fathers[echo_id] = father
+
+            if len(self.neighbours) == 1:
+                # No neighbours except for the father
+                self.echo_reply(father)
+            else:
+                # Send on to neighbours
+                self.echo_cmd(father)
 
     def echo_reply(self, dest):
         pass
 
-    def echo_recv(self, echo_data):
-        self.list_cmd()
-        if len(echo_data) == 5:
-            echo_id = echo_data[0:2]
-            source = echo_data[2]
+    def recv_echo_reply(self, addr, *args):
+        if (len(args) != 5):
+            self._window.writeln('Received incorrect data...')
+            return
 
-            if echo_id in self.echos_recvd:
-                # Already received so ECHO_REPLY
-                self.echo_reply()
-            else:
-                # Make sender father and add to echos_recvd
-                father = source
-                self.echos_recvd.append(echo_id)
+        echo_id = args[0:2]
 
-                if len(self.neighbours) == 1:
-                    # No neighbours except for the father
-                    self.echo_reply(father)
-                else:
-                    # Send on to neighbours
-                    self.echo_cmd(father)
+        # TODO Somehow save the received echo's
+        # TODO After saving, check if we have all, if so
+        if 'received all':
+            self.echo_reply(self.fathers[echo_id])
 
     def size_cmd(self):
         self._window.writeln("Im now doing size")
@@ -238,18 +250,18 @@ class SensorNode():
     def helptext(self):
         # Required
         self._window.write('List of available commands:\n' +
-                           'ping  : Sends a multicast ping message.\n' +
-                           'list  : List all known neighbours.\n' +
-                           'move  : Move this node to random new position.\n' +
-                           'echo  : Initiate echo wave.\n' +
-                           'size  : Get the size of the network.\n' +
-                           'exit  : Exit the node\n' +
-                           'quit  : Exit the node\n')
+                           ' - ping  : Sends a multicast ping message.\n' +
+                           ' - list  : List all known neighbours.\n' +
+                           ' - move  : Move node to random new position.\n' +
+                           ' - echo  : Initiate echo wave.\n' +
+                           ' - size  : Get the size of the network.\n' +
+                           ' - exit  : Exit the node\n' +
+                           ' - quit  : Exit the node\n')
         # Bonus
-        self._window.write('value : New random sensor value.\n' +
-                           'sum   : Sum all sensor values.\n' +
-                           'min   : Minimum of all sensor values.\n' +
-                           'max   : Maximum of all sensor values.\n')
+        self._window.write(' - value : New random sensor value.\n' +
+                           ' - sum   : Sum all sensor values.\n' +
+                           ' - min   : Minimum of all sensor values.\n' +
+                           ' - max   : Maximum of all sensor values.\n')
 
 
 # Get random position in NxN grid.
