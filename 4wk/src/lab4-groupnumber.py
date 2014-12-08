@@ -78,7 +78,7 @@ class SensorNode():
         }
 
         receive_dict = {
-            "ECHO": self.echo_recv,
+            "ECHO": self.echo_recv,  # TODO define what we receive and fix
         }
 
         # -- This is the event loop. --
@@ -86,8 +86,8 @@ class SensorNode():
             input_ready, output_ready, except_ready = \
                 select([self.mcast, self.peer], [], [], 0)
             for rdy_socket in input_ready:
-                data = rdy_socket.recv(1024)
-                if not data:
+                message = rdy_socket.recv(1024)
+                if not message:
                     # Source has disconnected
                     # TODO Remove source from list, or re-scan
                     pass
@@ -97,22 +97,23 @@ class SensorNode():
                     except KeyError:
                         self._window.writeln('Unknown message received.')
                     except IndexError:
-                        self._window.writeln('To few arguments for: %s' % message)
+                        self._window.writeln('To few arguments for: %s'
+                                             % message)
                     except TypeError:
                         self._window.writeln('Not implemented: %s' % message)
 
-            message = self._window.getline()
-            if message:
-                self._window.writeln(message)
+            input = self._window.getline()
+            if input:
+                self._window.writeln(input)
                 self._args = []
                 try:
-                    function_dict[message.lower()](*self._args)
+                    function_dict[input.lower()](*self._args)
                 except KeyError:
                     self._window.writeln('Unknown command.')
                 except IndexError:
-                    self._window.writeln('To few arguments for: %s' % message)
+                    self._window.writeln('To few arguments for: %s' % input)
                 except TypeError:
-                    self._window.writeln('Not implemented: %s' % message)
+                    self._window.writeln('Not implemented: %s' % input)
 
     def ping_cmd(self):
         self._window.writeln("Im now doing ping")
