@@ -26,9 +26,15 @@ class SensorNode():
         ping_period: time in seconds between multicast pings.
         """
         # Sequence number used for tracking echos
-        self.sequence = 0
+        self.echo_sequence = 0
         self.echos_recvd = []
-        self.neighbours = []
+        self.neighbours = {}
+        self.mcast_addr = mcast_addr
+        self.sensor_pos = sensor_pos
+        self.sensor_range = sensor_range
+        self.sensor_val = sensor_val
+        self.grid_size = grid_size
+        self.ping_period = ping_period
 
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -38,18 +44,13 @@ class SensorNode():
         self.mcast.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
         # Subscribe the socket to multicast messages from the given address.
-        self.mreq = struct.pack('4sl',
-                                inet_aton(mcast_addr[0]),
-                                INADDR_ANY)
-        self.mcast.setsockopt(IPPROTO_IP,
-                              IP_ADD_MEMBERSHIP,
-                              self.mreq)
+        self.mreq = struct.pack('4sl', inet_aton(mcast_addr[0]), INADDR_ANY)
+        self.mcast.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP, self.mreq)
         self.mcast.bind(mcast_addr)
 
         # -- Create the peer-to-peer socket. --
-        self.peer = socket(AF_INET,
-                           SOCK_DGRAM,
-                           IPPROTO_UDP)
+        self.peer = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+
         # Set the socket multicast TTL so it can send multicast messages.
         self.peer.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, 5)
 
@@ -66,8 +67,8 @@ class SensorNode():
         self._window.writeln('my position is (%s, %s)' % sensor_pos)
         self._window.writeln('my sensor value is %s' % sensor_val)
 
-        function_dict = {
-            "ping": self.ping_cmd,
+        self.win_function_dict = {
+            "ping": self.exec_ping,
             "list": self.list_cmd,
             "move": self.move_cmd,
             "echo": self.echo_cmd,
@@ -81,52 +82,65 @@ class SensorNode():
             "help": self.helptext,
         }
 
-        receive_dict = {
+        self.recv_funct_dict = {
             # Echo defined as
-            # 'ECHO <initiator> <sequence> <source> <operation> <payload>'
+            # (type, sequence, (ix, iy), (nx, ny), operation, payload)
             "ECHO": self.echo_recv,
         }
 
+        self.loop()
+
+    def loop(self):
         # -- This is the event loop. --
         while self._window.update():
+
+            # Handle the sockets
             input_ready, output_ready, except_ready = \
                 select([self.mcast, self.peer], [], [], 0)
             for sock in input_ready:
-                message = sock.recv(1024)
+                message = sock.recvfrom(1024)
                 if not message:
                     # Source has disconnected
-                    # TODO Remove source from list, or re-scan
+                    # TODO Remove source from list
                     pass
-                else:
-                    message = message.split()
-                    data = message[1:]
-                    try:
-                        receive_dict[message[0]](data)
-                    except KeyError:
-                        self._window.writeln('Unknown data received.')
-                    except IndexError:
-                        self._window.writeln('To few arguments for: %s'
-                                             % message[0])
-                    except TypeError:
-                        self._window.writeln('Not implemented: %s'
-                                             % message[0])
 
+                # Decode the message
+                msg_type, sequence, initiator, source, operation, \
+                    payload = message_decode(message)
+                recv_function_args = \
+                    [sequence, initiator, source, operation, payload]
+
+                # Call the respective function to handle the request
+                try:
+                    self.recv_funct_dict[msg_type](sock, *recv_function_args)
+                except KeyError:
+                    self._window.writeln('Unknown data received.')
+                except IndexError:
+                    self._window.writeln('To few arguments for: %s'
+                                         % msg_type)
+
+            # Handle the input from the user
             input_ln = self._window.getline()
             if input_ln:
                 self._window.writeln(input_ln)
-                self._args = []
                 try:
-                    function_dict[input_ln.lower()](*self._args)
+                    self.win_function_dict[input_ln.lower()]()
                 except KeyError:
                     self._window.writeln('Unknown command.')
                 except IndexError:
                     self._window.writeln('To few arguments for: %s' % input_ln)
+                # TODO delete after
                 except TypeError:
                     self._window.writeln('Not implemented: %s' % input_ln)
 
-    def ping_cmd(self):
-        self._window.writeln("Im now doing ping")
-        pass
+    def exec_ping(self):
+        """
+        Empty the neighbour list and execute a ping request
+        """
+        self.neighbours = {}
+        self._window.writeln("Refreshing list of all neighbours...")
+        data = message_encode(MSG_PING, -1, self.sensor_pos, self.sensor_pos)
+        self.peer.sendto(data, self.mcast_addr)
 
     def list_cmd(self):
         self._window.writeln("Im now doing list")
