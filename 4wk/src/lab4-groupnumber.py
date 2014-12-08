@@ -2,6 +2,7 @@
 ## NAME: Robin Klusman & Maico Timmerman
 ## STUDENT ID:
 import struct
+import select
 from socket import socket, inet_aton
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
     IPPROTO_UDP, INADDR_ANY, IPPROTO_IP, IP_ADD_MEMBERSHIP, IP_MULTICAST_TTL
@@ -73,6 +74,18 @@ class SensorNode():
 
         # -- This is the event loop. --
         while self._window.update():
+            input_ready, output_ready, except_ready = \
+                select([self.mcast, self.peer], [], [], 0)
+            for rdy_socket in input_ready:
+                data = rdy_socket.recv(1024)
+                if not data:
+                    # Source has disconnected
+                    # TODO Remove source from list, or re-scan
+                    pass
+                else:
+                    # TODO Check what we received and do the appropriate action
+                    pass
+
             message = self._window.getline()
             if message:
                 self._window.writeln(message)
@@ -92,6 +105,8 @@ class SensorNode():
 
     def list_cmd(self):
         self._window.writeln("Im now doing list")
+        self.neighbours  # = ...
+
         pass
 
     def move_cmd(self):
@@ -99,6 +114,12 @@ class SensorNode():
         pass
 
     def echo_cmd(self):
+        self.list_cmd()
+        i = 0
+        while self.neighbours[i]:
+            # Echo neighbour
+            i += 1
+
         self._window.writeln("Im now doing echo")
         pass
 
