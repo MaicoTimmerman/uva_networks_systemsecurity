@@ -3,6 +3,7 @@
 ## STUDENT ID: 10675671
 import struct
 from math import sqrt
+from copy import deepcopy
 from select import select
 from socket import socket, inet_aton
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
@@ -30,6 +31,7 @@ class SensorNode():
         self.echo_sequence = 0
         self.echos_recvd = []
         self.neighbours = {}
+        self.echo_tracking = {}
         self.mcast_addr = mcast_addr
         self.sensor_pos = sensor_pos
         # self.sensor_range = sensor_range
@@ -231,11 +233,15 @@ class SensorNode():
         """
         Send an ECHO command to all but the father
         """
+        echo_id = (sequence, initiator)
+        self.echo_tracking[echo_id] = deepcopy(self.neighbours)
         for position in self.neighbours:
             if father != position:
                 data = message_encode(MSG_ECHO, sequence, initiator,
                                       self.sensor_pos, operation, payload)
                 self.peer.sendto(data, self.neighbours[position])
+            else:
+                del self.echo_tracking[father]
 
     def recv_echo(self, addr, *args):
         if (len(args) != 5):
@@ -277,9 +283,11 @@ class SensorNode():
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
 
-        # TODO Somehow save the received echo's
-        # TODO After saving, check if we have all, if so
-        if 'received all':
+        # remove the sending neighbour from the list
+        del self.echo_tracking[addr]
+
+        # If all neighbours have responded, send back to the father
+        if (len(self.neighbours) == 0):
             self.send_echo_reply(self.fathers[echo_id])
             del self.fathers[echo_id]
             self.echos_recvd.remove(echo_id)
