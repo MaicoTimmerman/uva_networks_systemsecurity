@@ -22,6 +22,9 @@ class SensorNode():
         grid_size: length of the  of the grid (which is always square).
         ping_period: time in seconds between multicast pings.
         """
+        # Sequence number used for tracking echos
+        self.sequence = 0
+
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
 
@@ -117,8 +120,9 @@ class SensorNode():
         self.list_cmd()
         i = 0
         while self.neighbours[i]:
-            # Echo neighbour
+            # TODO Send echo to neighbour
             i += 1
+            self.sequence += 1
 
         self._window.writeln("Im now doing echo")
         pass
