@@ -4,6 +4,7 @@
 import struct
 from math import sqrt
 from copy import deepcopy
+from threading import Timer
 from select import select
 from socket import socket, inet_aton
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
@@ -34,6 +35,7 @@ class SensorNode():
         self.echo_tracking = {}
         self.mcast_addr = mcast_addr
         self.sensor_pos = sensor_pos
+
         # self.sensor_range = sensor_range
         self.sensor_range = 150
         self.sensor_val = sensor_val
@@ -102,6 +104,8 @@ class SensorNode():
         }
 
         # Discover neighbours
+        self.ping_timer = self._window._root.after(
+            self.ping_period * 1000, self.exec_ping, [])
         self.exec_ping()
 
         # Start the main loop
@@ -152,6 +156,10 @@ class SensorNode():
         """
         Empty the neighbour list and execute a ping request
         """
+        self._window._root.after_cancel(self.ping_timer)
+        self.ping_timer = self._window._root.after(
+            self.ping_period * 1000, self.exec_ping, [])
+
         self.neighbours = {}
         self._window.writeln("Refreshing list of all neighbours...")
         data = message_encode(MSG_PING, -1, self.sensor_pos, self.sensor_pos)
