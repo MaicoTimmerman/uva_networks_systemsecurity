@@ -241,14 +241,14 @@ class SensorNode():
 
         elif case == FIRST_RECV:
             if op == OP_SIZE:
-                return 1
+                return 1.
             elif (op == OP_SUM) or (op == OP_MIN) or (op == OP_MAX):
                 return self.sensor_val
             elif op == OP_NOOP:
-                return 0
+                return 0.
             else:
                 self._window.writeln('undefined op')
-                return 0
+                return 0.
 
         elif case == REPLY_RECV:
             payload = args[4]
@@ -343,12 +343,12 @@ class SensorNode():
         echo_id = (sequence, initiator)
         self.echo_tracking[echo_id] = self.neighbours.values()
         if operation == OP_SIZE:
-            self.payloads[echo_id] = 1
+            self.payloads[echo_id] = 1.
         elif ((operation == OP_SUM) or (operation == OP_MIN)
               or (operation == OP_MAX)):
-            self.payloads[echo_id] = self.sensor_val
+            self.payloads[echo_id] = float(self.sensor_val)
         elif operation == OP_NOOP:
-            self.payloads[echo_id] = 0
+            self.payloads[echo_id] = 0.
         else:
             self._window.writeln('Operation code not implemented.')
             self.payloads[echo_id] = None
@@ -440,8 +440,11 @@ class SensorNode():
 
                 del self.fathers[echo_id]
                 self.echos_recvd.remove(echo_id)
+                del self.payloads[echo_id]
             else:
                 self._window.writeln('Received reply from all')
+                self._window.writeln('Payload is %d' % self.payloads[echo_id])
+                del self.payloads[echo_id]
 
     def helptext(self):
         # Required
