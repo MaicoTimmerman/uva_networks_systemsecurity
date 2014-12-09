@@ -35,6 +35,7 @@ class SensorNode():
         self.echos_recvd = []
         self.neighbours = {}
         self.echo_tracking = {}
+        self.payloads = {}
         self.mcast_addr = mcast_addr
         self.sensor_pos = sensor_pos
 
