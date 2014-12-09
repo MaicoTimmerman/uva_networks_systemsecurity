@@ -244,19 +244,56 @@ class SensorNode():
         self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 0)
         self.echo_sequence += 1
 
-    def do_op(self, op, payload, sensor_val, redundant=False):
-        if redundant:
-            if op == OP_MIN or op == OP_MAX:
-                return payload
-            elif op == OP_SIZE or op == OP_SUM:
+    def do_op(self, op, recv_payload, local_payload, size_payload, valid=True):
+
+        if not valid:
+            if op == OP_MIN:
+                return 100
+            elif op == OP_SIZE or op == OP_SUM or op == OP_MAX:
                 return 0
-        try:
-            return self.op_dict[op](payload, sensor_val)
-        except TypeError:
-            return 0
+            elif op == OP_NOOP:
+                return 0
+            else:
+                self._window.writeln('Unknown op, not handled')
+                return 0
+
+        else:
+            if not recv_payload:
+                if op == OP_SIZE:
+                    return 1
+
+                elif op == OP_SUM or op == OP_MIN or op == OP_MAX:
+                    return self.sensor_val
+
+                elif op == OP_NOOP:
+                    return 0
+
+                else:
+                    self._window.writeln('Unknown op, not handled')
+                    return 0
+
+            else:
+                if op == OP_SIZE:
+                    return self.calc_size(local_payload, size_payload)
+
+                elif op == OP_SUM:
+                    return self.calc_sum(local_payload, recv_payload)
+
+                elif op == OP_MIN:
+                    return self.calc_min(local_payload, recv_payload)
+
+                elif op == OP_MAX:
+                    return self.calc_max(local_payload, recv_payload)
+
+                elif op == OP_NOOP:
+                    return 0
+
+                else:
+                    self._window.writeln('Unknown op, not handled')
+                    return 0
 
     def calc_size(self, value1, value2):
-        return (value1 + 1)
+        return (value1 + value2)
 
     def calc_sum(self, value1, value2):
         return (value1 + value2)
@@ -312,9 +349,9 @@ class SensorNode():
         source = args[2]
 
         if echo_id in self.echos_recvd:
-            payload = self.do_op(args[3], args[4], None, True)
-            # Already received so ECHO_REPLY, so sending back with payload 0
-            self.send_echo_reply(source, args[0], args[1], args[3], 0)
+            payload = self.do_op(args[3], args[4], self.sensor_val, 1, False)
+            # Already received so ECHO_REPLY
+            self.send_echo_reply(source, args[0], args[1], args[3], payload)
             self._window.writeln("Recved double echo")
         else:
             # Make sender father and add to echos_recvd
@@ -323,14 +360,15 @@ class SensorNode():
             if len(self.neighbours) == 1:
                 # Since we are returning to the father,
                 # we need to calculate the payload
-                payload = self.do_op(args[3], args[4], False)
+                payload = self.do_op(args[3], None, self.sensor_val, 1)
 
                 # Mark this instance of echo as seen before
                 self.echos_recvd.append(echo_id)
 
-                # Reply to father
-                self.send_echo_reply(father, args[0], args[1],
-                                     args[3], payload)
+                # No neighbours except for the father
+                self.send_echo_reply(father, args[0], args[1], args[3],
+                                     payload)
+                print("replying")
             else:
                 # TODO: Send on to neighbours
                 self.send_echo(args[0], args[1], father, args[3], args[4])
@@ -363,6 +401,7 @@ class SensorNode():
         echo_id = args[0:2]
         initiator = args[2]
         self.payloads[echo_id] = self.do_op(args[3], args[4],
+                                            self.payloads[echo_id],
                                             self.payloads[echo_id])
 
         # remove the sending neighbour from the list
