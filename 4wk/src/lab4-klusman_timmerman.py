@@ -333,7 +333,7 @@ class SensorNode():
         """
         Abstraction layer for the gui interface echo command
         """
-        self.send_echo(self.echo_sequence, self.sensor_pos, None)
+        self.send_echo(self.echo_sequence, self.sensor_pos, OP_NOOP, 0)
         self.echo_sequence += 1
 
     def send_echo(self, sequence, initiator, father, operation=0, payload=0):
@@ -405,6 +405,8 @@ class SensorNode():
         """
         Send echo reply to father(destination)
         """
+        if payload:
+            payload = float(payload)
         data = message_encode(MSG_ECHO_REPLY, sequence, initiator,
                               self.sensor_pos, operation, payload)
         self.peer.sendto(data, self.neighbours[destination])
@@ -443,6 +445,7 @@ class SensorNode():
                 del self.payloads[echo_id]
             else:
                 self._window.writeln('Received reply from all')
+                print(str(self.payloads[echo_id]))
                 self._window.writeln('Payload is %d' % self.payloads[echo_id])
                 del self.payloads[echo_id]
 
