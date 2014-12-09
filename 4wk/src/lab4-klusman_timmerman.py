@@ -138,8 +138,8 @@ class SensorNode():
                 self._window.writeln(input_ln)
                 try:
                     self.win_function_dict[input_ln.lower()]()
-                except KeyError:
-                    self._window.writeln('Unknown command.')
+                # except KeyError:
+                #     self._window.writeln('Unknown command.')
                 except IndexError:
                     self._window.writeln('To few arguments for: %s' % input_ln)
 
@@ -348,7 +348,7 @@ class SensorNode():
               or (operation == OP_MAX)):
             self.payloads[echo_id] = self.sensor_val
         elif operation == OP_NOOP:
-            self.payloads[echo_id] == 0
+            self.payloads[echo_id] = 0
         else:
             self._window.writeln('Operation code not implemented.')
             self.payloads[echo_id] = None
