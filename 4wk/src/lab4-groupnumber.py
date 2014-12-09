@@ -3,7 +3,6 @@
 ## STUDENT ID: 10675671
 import struct
 from math import sqrt
-from copy import deepcopy
 from select import select
 from socket import socket, inet_aton
 from socket import AF_INET, SO_REUSEADDR, SOL_SOCKET, SOCK_DGRAM, \
@@ -35,13 +34,11 @@ class SensorNode():
         self.mcast_addr = mcast_addr
         self.sensor_pos = sensor_pos
 
-        # self.sensor_range = sensor_range
-        self.sensor_range = 150
+        self.sensor_range = sensor_range
         self.sensor_val = sensor_val
         self.grid_size = grid_size
         self.ping_period = ping_period
         self.fathers = {}
-        self.payloads = {}
 
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -96,14 +93,6 @@ class SensorNode():
             MSG_ECHO_REPLY: self.recv_echo_reply,
         }
 
-        self.op_dict = {
-            OP_SIZE: self.calc_size,
-            OP_SUM: self.calc_sum,
-            OP_MIN: self.calc_min,
-            OP_MAX: self.calc_max,
-            OP_NOOP: None,
-        }
-
         # Discover neighbours
         self.ping_timer = self._window._root.after(
             self.ping_period * 1000, self.exec_ping, [])
@@ -121,10 +110,6 @@ class SensorNode():
                 select([self.mcast, self.peer], [], [], 0)
             for sock in input_ready:
                 message = sock.recvfrom(1024)
-                if not message:
-                    # Source has disconnected
-                    # TODO Remove source from list
-                    pass
 
                 # Decode the message
                 msg_type, sequence, initiator, source, operation, \
@@ -314,7 +299,7 @@ class SensorNode():
         """
         Abstraction layer for the gui interface echo command
         """
-        self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_NOOP)
+        self.send_echo(self.echo_sequence, self.sensor_pos, None)
         self.echo_sequence += 1
 
     def send_echo(self, sequence, initiator, father, operation=0, payload=0):
@@ -322,7 +307,7 @@ class SensorNode():
         Send an ECHO command to all but the father
         """
         echo_id = (sequence, initiator)
-        self.echo_tracking[echo_id] = deepcopy(self.neighbours)
+        self.echo_tracking[echo_id] = self.neighbours.values()
 
         # Send to all neighbours except for the father
         for position in self.neighbours:
@@ -333,15 +318,7 @@ class SensorNode():
 
             # Dont wait for a response from daddy
             elif father:
-                del self.echo_tracking[echo_id][father]
-            elif (not father):
-                if (operation == OP_SIZE):
-                    self.payloads[echo_id] = 1
-                elif ((operation == OP_SUM) or (operation == OP_MIN)
-                      or (operation == OP_MAX)):
-                    self.payloads[echo_id] = self.sensor_val
-                elif (operation == OP_NOOP):
-                    self.payloads[echo_id] = 0
+                self.echo_tracking[echo_id].remove(self.neighbours[father])
 
     def recv_echo(self, addr, *args):
         """
@@ -357,42 +334,25 @@ class SensorNode():
         source = args[2]
 
         if echo_id in self.echos_recvd:
-            payload = self.do_op(args[3], args[4], self.sensor_val, 1, False)
             # Already received so ECHO_REPLY
-            self.send_echo_reply(source, args[0], args[1], args[3], payload)
-            self._window.writeln("Recved double echo")
+            self.send_echo_reply(source, args[0], args[1], args[3])
         else:
             # Make sender father and add to echos_recvd
             father = source
 
             if len(self.neighbours) == 1:
-                # Since we are returning to the father,
-                # we need to calculate the payload
-                payload = self.do_op(args[3], None, self.sensor_val, 1)
-
                 # Mark this instance of echo as seen before
                 self.echos_recvd.append(echo_id)
 
                 # No neighbours except for the father
-                self.send_echo_reply(father, args[0], args[1], args[3],
-                                     payload)
-                print("replying")
+                self.send_echo_reply(father, args[0], args[1], args[3])
             else:
-                if (args[3] == OP_SIZE):
-                    self.payloads[echo_id] = 1
-                elif ((args[3] == OP_SUM) or (args[3] == OP_MIN)
-                      or (args[3] == OP_MAX)):
-                    self.payloads[echo_id] = self.sensor_val
-                elif (args[3] == OP_NOOP):
-                    self.payloads[echo_id] = 0
-
-                self.send_echo(args[0], args[1], father, args[3], args[4])
+                self.send_echo(args[0], args[1], father)
                 self.fathers[echo_id] = father
                 self.echos_recvd.append(echo_id)
-                self._window.writeln("sending to neighbour")
 
-    def send_echo_reply(self, destination, sequence, initiator, operation,
-                        payload=0):
+    def send_echo_reply(self, destination, sequence, initiator,
+                        operation=0, payload=0):
         """
         Send echo reply to father(destination)
         """
@@ -405,6 +365,7 @@ class SensorNode():
         Upon receiving an echo reply, send it to father if all
         neighbours have reacted, else mark sending neighbour as received
         and wait for all other neighbours to respond
+        args = [Sequence, Initiator, Neighbor, Operation, Payload]
         """
         if (len(args) != 5):
             self._window.writeln('Received incorrect data...')
@@ -414,28 +375,21 @@ class SensorNode():
 
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
-        initiator = args[2]
-        self.payloads[echo_id] = self.do_op(args[3], args[4],
-                                            self.payloads[echo_id],
-                                            self.payloads[echo_id])
+        initiator = args[1]
 
         # remove the sending neighbour from the list
-        # TODO Fix this, commented out now
-        del self.echo_tracking[echo_id][addr]
+        self.echo_tracking[echo_id].remove(addr)
 
         # If all neighbours have responded, send back to the father
-        if (len(self.echo_tracking[echo_id]) == 0) \
-                and (initiator != self.sensor_pos):
+        if (len(self.echo_tracking[echo_id]) == 0):
 
-            self.send_echo_reply(self.fathers[echo_id])
-            payload = self.payloads[echo_id]
-            self.send_echo_reply(self.fathers[echo_id], args[0], args[1],
-                                 args[3], payload)
-            del self.fathers[echo_id]
-            del self.payloads[echo_id]
-            self.echos_recvd.remove(echo_id)
-        if initiator == self.sensor_pos:
-            self._window.writeln('Size = %d' % self.payloads[echo_id])
+            if (initiator != self.sensor_pos):
+                self.send_echo_reply(self.fathers[echo_id], args[0], args[1])
+
+                del self.fathers[echo_id]
+                self.echos_recvd.remove(echo_id)
+            else:
+                self._window.writeln('Received reply from all')
 
     def helptext(self):
         # Required
