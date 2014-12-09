@@ -136,8 +136,8 @@ class SensorNode():
                 try:
                     self.recv_funct_dict[msg_type](message[1],
                                                    *recv_function_args)
-                except KeyError:
-                    self._window.writeln('Unknown data received.')
+                # except KeyError:
+                #     self._window.writeln('Unknown data received.')
                 except IndexError:
                     self._window.writeln('To few arguments for: %s'
                                          % msg_type)
@@ -184,9 +184,6 @@ class SensorNode():
         dy = source[1] - self.sensor_pos[1]
         distance = sqrt(pow(dx, 2) + pow(dy, 2))
         if (distance <= self.sensor_range):
-            self._window.writeln('Received a ping message from (' +
-                                 str(source[0]) + ',' + str(source[1]) +
-                                 '), returning Pong...')
             # Send PONG
             data = message_encode(MSG_PONG, -1, source, self.sensor_pos)
             self.peer.sendto(data, addr)
@@ -199,11 +196,8 @@ class SensorNode():
             self._window.writeln('Received incorrect data...')
             return
 
-        source = args[2]
-        self._window.writeln('Received a pong message from (' + str(source[0])
-                             + ',' + str(source[1]) + '), registering...')
-
         # Register neighbour
+        source = args[2]
         self.neighbours[source] = addr
 
     def exec_list(self):
@@ -250,7 +244,7 @@ class SensorNode():
                 return payload
             elif op == OP_SIZE or op == OP_SUM:
                 return 0
-        self.op_dict[op](payload, sensor_val)
+        return self.op_dict[op](payload, sensor_val)
 
     def calc_size(self, value1, value2):
         return (value1 + 1)
@@ -289,7 +283,7 @@ class SensorNode():
                                       self.sensor_pos, operation, payload)
                 self.peer.sendto(data, self.neighbours[position])
             else:
-                del self.echo_tracking[father]
+                del self.echo_tracking[echo_id][father]
 
     def recv_echo(self, addr, *args):
         if (len(args) != 5):
@@ -334,7 +328,7 @@ class SensorNode():
         self.payloads[echo_id] = self.do_op(args[3], args[4], self.sensor_val)
 
         # remove the sending neighbour from the list
-        del self.echo_tracking[addr]
+        del self.echo_tracking[echo_id][addr]
 
         # If all neighbours have responded, send back to the father
         if (len(self.neighbours) == 0):
