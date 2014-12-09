@@ -13,6 +13,10 @@ from sensor import message_encode, message_decode
 from sensor import MSG_PING, MSG_PONG, MSG_ECHO, MSG_ECHO_REPLY, \
     OP_NOOP, OP_SIZE, OP_SUM, OP_MIN, OP_MAX
 
+DOUBLE_RECV = 0
+FIRST_RECV = 1
+REPLY_RECV = 2
+
 
 class SensorNode():
 
@@ -229,56 +233,85 @@ class SensorNode():
         self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 0)
         self.echo_sequence += 1
 
-    def do_op(self, op, recv_payload, local_payload, size_payload, valid=True):
+    def get_payload(self, case, args):
+        op = args[3]
+        if case == DOUBLE_RECV:
+            return None
 
-        if not valid:
-            if op == OP_MIN:
-                return 100
-            elif op == OP_SIZE or op == OP_SUM or op == OP_MAX:
-                return 0
+        elif case == FIRST_RECV:
+            if op == OP_SIZE:
+                return 1
+            elif (op == OP_SUM) or (op == OP_MIN) or (op == OP_MAX):
+                return self.sensor_val
             elif op == OP_NOOP:
                 return 0
             else:
-                self._window.writeln('Unknown op, not handled')
+                self._window.writeln('undefined op')
                 return 0
 
+        elif case == REPLY_RECV:
+            payload = args[4]
+            echo_id = args[0:2]
+            if op == OP_SIZE:
+                self.calc_sum(self.payloads[echo_id], payload)
+            elif op == OP_SUM:
+                self.calc_sum(self.payloads[echo_id], payload)
+            elif op == OP_MIN:
+                self.calc_min(self.payloads[echo_id], payload)
+            elif op == OP_MAX:
+                self.calc_max(self.payloads[echo_id], payload)
+
         else:
-            if not recv_payload:
-                if op == OP_SIZE:
-                    return 1
+            self._window.writeln('get_payload case undefined')
+            return 0
 
-                elif op == OP_SUM or op == OP_MIN or op == OP_MAX:
-                    return self.sensor_val
-
-                elif op == OP_NOOP:
-                    return 0
-
-                else:
-                    self._window.writeln('Unknown op, not handled')
-                    return 0
-
-            else:
-                if op == OP_SIZE:
-                    return self.calc_size(local_payload, size_payload)
-
-                elif op == OP_SUM:
-                    return self.calc_sum(local_payload, recv_payload)
-
-                elif op == OP_MIN:
-                    return self.calc_min(local_payload, recv_payload)
-
-                elif op == OP_MAX:
-                    return self.calc_max(local_payload, recv_payload)
-
-                elif op == OP_NOOP:
-                    return 0
-
-                else:
-                    self._window.writeln('Unknown op, not handled')
-                    return 0
-
-    def calc_size(self, value1, value2):
-        return (value1 + value2)
+    # def do_op(self, op, recv_payload, local_payload, size_payload, valid):
+    #
+    #     if not valid:
+    #         if op == OP_MIN:
+    #             return 100
+    #         elif op == OP_SIZE or op == OP_SUM or op == OP_MAX:
+    #             return 0
+    #         elif op == OP_NOOP:
+    #             return 0
+    #         else:
+    #             self._window.writeln('Unknown op, not handled')
+    #             return 0
+    #
+    #     else:
+    #         if not recv_payload:
+    #             if op == OP_SIZE:
+    #                 return 1
+    #
+    #             elif op == OP_SUM or op == OP_MIN or op == OP_MAX:
+    #                 return self.sensor_val
+    #
+    #             elif op == OP_NOOP:
+    #                 return 0
+    #
+    #             else:
+    #                 self._window.writeln('Unknown op, not handled')
+    #                 return 0
+    #
+    #         else:
+    #             if op == OP_SIZE:
+    #                 return self.calc_size(local_payload, size_payload)
+    #
+    #             elif op == OP_SUM:
+    #                 return self.calc_sum(local_payload, recv_payload)
+    #
+    #             elif op == OP_MIN:
+    #                 return self.calc_min(local_payload, recv_payload)
+    #
+    #             elif op == OP_MAX:
+    #                 return self.calc_max(local_payload, recv_payload)
+    #
+    #             elif op == OP_NOOP:
+    #                 return 0
+    #
+    #             else:
+    #                 self._window.writeln('Unknown op, not handled')
+    #                 return 0
 
     def calc_sum(self, value1, value2):
         return (value1 + value2)
@@ -308,6 +341,16 @@ class SensorNode():
         """
         echo_id = (sequence, initiator)
         self.echo_tracking[echo_id] = self.neighbours.values()
+        if operation == OP_SIZE:
+            self.payloads[echo_id] = 1
+        elif ((operation == OP_SUM) or (operation == OP_MIN)
+              or (operation == OP_MAX)):
+            self.payloads[echo_id] = self.sensor_val
+        elif operation == OP_NOOP:
+            self.payloads[echo_id] == 0
+        else:
+            self._window.writeln('Operation code not implemented.')
+            self.payloads[echo_id] = None
 
         # Send to all neighbours except for the father
         for position in self.neighbours:
@@ -334,18 +377,23 @@ class SensorNode():
         source = args[2]
 
         if echo_id in self.echos_recvd:
+            # case = DOUBLE_RECV
+            payload = self.get_payload(DOUBLE_RECV, args)
             # Already received so ECHO_REPLY
-            self.send_echo_reply(source, args[0], args[1], args[3])
+            self.send_echo_reply(source, args[0], args[1], args[3], payload)
         else:
             # Make sender father and add to echos_recvd
             father = source
 
             if len(self.neighbours) == 1:
+                # case = FIRST_RECV
+                payload = self.get_payload(FIRST_RECV, args)
                 # Mark this instance of echo as seen before
                 self.echos_recvd.append(echo_id)
 
                 # No neighbours except for the father
-                self.send_echo_reply(father, args[0], args[1], args[3])
+                self.send_echo_reply(father, args[0], args[1], args[3],
+                                     payload)
             else:
                 self.send_echo(args[0], args[1], father)
                 self.fathers[echo_id] = father
@@ -376,6 +424,9 @@ class SensorNode():
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
         initiator = args[1]
+
+        # case = REPLY_RECV
+        self.payloads[echo_id] = self.get_payload(REPLY_RECV, args)
 
         # remove the sending neighbour from the list
         self.echo_tracking[echo_id].remove(addr)
