@@ -42,6 +42,7 @@ class SensorNode():
         self.grid_size = grid_size
         self.ping_period = ping_period
         self.fathers = {}
+        self.payloads = {}
 
         # -- Create the multicast listener socket. --
         self.mcast = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -97,7 +98,7 @@ class SensorNode():
         }
 
         self.op_dict = {
-            OP_SIZE: self.calc_sum,
+            OP_SIZE: self.calc_size,
             OP_SUM: self.calc_sum,
             OP_MIN: self.calc_min,
             OP_MAX: self.calc_max,
@@ -243,6 +244,17 @@ class SensorNode():
         self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 1)
         self.echo_sequence += 1
 
+    def do_op(self, op, payload, sensor_val, redundant=False):
+        if redundant:
+            if op == OP_MIN or op == OP_MAX:
+                return payload
+            elif op == OP_SIZE or op == OP_SUM:
+                return 0
+        self.op_dict[op](payload, sensor_val)
+
+    def calc_size(self, value1, value2):
+        return (value1 + 1)
+
     def calc_sum(self, value1, value2):
         return (value1 + value2)
 
@@ -287,21 +299,17 @@ class SensorNode():
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
         source = args[2]
-        payload = args[4]
-
-
 
         if echo_id in self.echos_recvd:
-            payload = do_op(args[3], payload)
+            payload = self.do_op(args[3], args[4], None, True)
             # Already received so ECHO_REPLY
-            # self.send_echo_reply(source)
-            pass
+            self.send_echo_reply(source, args[0], args[1], args[3], payload)
         else:
             # Make sender father and add to echos_recvd
             father = source
 
             if len(self.neighbours) == 1:
-                payload = do_op(args[3], payload)
+                payload = self.do_op(args[3], payload)
                 # No neighbours except for the father
                 # self.send_echo_reply(father)
                 print("replying")
@@ -311,7 +319,9 @@ class SensorNode():
                 self.fathers[echo_id] = father
                 self.echos_recvd.append(echo_id)
 
-    def send_echo_reply(self, dest):
+    def send_echo_reply(self, destination, sequence, initiator, operation=0,
+                        payload=0):
+
         pass
 
     def recv_echo_reply(self, addr, *args):
@@ -321,6 +331,7 @@ class SensorNode():
 
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
+        self.payloads[echo_id] = self.do_op(args[3], args[4], self.sensor_val)
 
         # remove the sending neighbour from the list
         del self.echo_tracking[addr]
@@ -328,7 +339,11 @@ class SensorNode():
         # If all neighbours have responded, send back to the father
         if (len(self.neighbours) == 0):
             self.send_echo_reply(self.fathers[echo_id])
+            payload = self.payloads[echo_id]
+            self.send_echo_reply(self.fathers[echo_id], args[0], args[1],
+                                 args[3], payload)
             del self.fathers[echo_id]
+            del self.payloads[echo_id]
             self.echos_recvd.remove(echo_id)
 
     def helptext(self):
