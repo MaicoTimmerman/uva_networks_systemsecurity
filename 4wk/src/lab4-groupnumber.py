@@ -221,7 +221,7 @@ class SensorNode():
 
     def exec_sum(self):
         self.send_echo(self.echo_sequence, self.sensor_pos, None,
-                       OP_SUM, self.sensor_val)
+                       OP_SUM, 0)
         self.echo_sequence += 1
 
     def exec_min(self):
@@ -235,7 +235,7 @@ class SensorNode():
         self.echo_sequence += 1
 
     def exec_size(self):
-        self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 1)
+        self.send_echo(self.echo_sequence, self.sensor_pos, None, OP_SIZE, 0)
         self.echo_sequence += 1
 
     def do_op(self, op, payload, sensor_val, redundant=False):
@@ -313,10 +313,11 @@ class SensorNode():
                 self.fathers[echo_id] = father
                 self.echos_recvd.append(echo_id)
 
-    def send_echo_reply(self, destination, sequence, initiator, operation=0,
-                        payload=0):
-
-        pass
+    def send_echo_reply(self, destination, sequence, initiator, operation,
+                        payload):
+        data = message_encode(MSG_ECHO_REPLY, sequence, initiator,
+                              self.sensor_pos, operation, payload)
+        self.peer.sendto(data, self.neighbours[destination])
 
     def recv_echo_reply(self, addr, *args):
         if (len(args) != 5):
@@ -325,13 +326,15 @@ class SensorNode():
 
         # Create an echo ID with sequence and initialiser
         echo_id = args[0:2]
+        initiator = args[2]
         self.payloads[echo_id] = self.do_op(args[3], args[4], self.sensor_val)
 
         # remove the sending neighbour from the list
-        del self.echo_tracking[echo_id][addr]
+        # TODO Fix this, commented out now
+        # del self.echo_tracking[echo_id][addr]
 
         # If all neighbours have responded, send back to the father
-        if (len(self.neighbours) == 0):
+        if (len(self.neighbours) == 0) and (initiator != self.sensor_pos):
             self.send_echo_reply(self.fathers[echo_id])
             payload = self.payloads[echo_id]
             self.send_echo_reply(self.fathers[echo_id], args[0], args[1],
@@ -339,6 +342,8 @@ class SensorNode():
             del self.fathers[echo_id]
             del self.payloads[echo_id]
             self.echos_recvd.remove(echo_id)
+        if args[2] == self.sensor_pos:
+            self._window.writeln('Size = %d' % self.payloads[echo_id])
 
     def helptext(self):
         # Required
