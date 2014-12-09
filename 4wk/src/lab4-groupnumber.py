@@ -334,6 +334,14 @@ class SensorNode():
             # Dont wait for a response from daddy
             elif father:
                 del self.echo_tracking[echo_id][father]
+            elif (not father):
+                if (operation == OP_SIZE):
+                    self.payloads[echo_id] = 1
+                elif ((operation == OP_SUM) or (operation == OP_MIN)
+                      or (operation == OP_MAX)):
+                    self.payloads[echo_id] = self.sensor_val
+                elif (operation == OP_NOOP):
+                    self.payloads[echo_id] = 0
 
     def recv_echo(self, addr, *args):
         """
@@ -370,7 +378,14 @@ class SensorNode():
                                      payload)
                 print("replying")
             else:
-                # TODO: Send on to neighbours
+                if (args[3] == OP_SIZE):
+                    self.payloads[echo_id] = 1
+                elif ((args[3] == OP_SUM) or (args[3] == OP_MIN)
+                      or (args[3] == OP_MAX)):
+                    self.payloads[echo_id] = self.sensor_val
+                elif (args[3] == OP_NOOP):
+                    self.payloads[echo_id] = 0
+
                 self.send_echo(args[0], args[1], father, args[3], args[4])
                 self.fathers[echo_id] = father
                 self.echos_recvd.append(echo_id)
